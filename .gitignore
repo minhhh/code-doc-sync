@@ -1,0 +1,38 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# code-graph data
+.code-graph/
+*.db
+*.db-wal
+*.db-shm
+
+# ctx-sync local artifacts
+.graph_snapshot.json
+*.tmp
+
+# Editors
+.idea/
+.vscode/
+
+sop_spec.md

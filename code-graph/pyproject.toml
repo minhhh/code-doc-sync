@@ -1,0 +1,53 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "code-graph"
+version = "0.1.0"
+description = "Local-first structural code graph with a SQLite/Typer query CLI"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "code-doc-sync" }]
+keywords = ["code-graph", "tree-sitter", "static-analysis", "sqlite"]
+dependencies = [
+    "typer>=0.12,<1",
+    "tree-sitter>=0.23,<1",
+    "tree-sitter-language-pack>=0.3,<1",
+    "networkx>=3.2,<4",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "mypy>=1.10", "ruff>=0.5", "pre-commit>=4"]
+
+[project.scripts]
+code-graph = "codegraph.cli:main"
+
+[project.urls]
+Repository = "https://github.com/code-doc-sync/code-graph"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/codegraph"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["tests/fixtures/*.ipynb"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/codegraph/__init__.py" = ["F401"]
+"tests/fixtures/*" = ["F401", "F841", "W292", "I001"]
+"tests/test_multilang.py" = ["E501", "E731"]
+"tests/test_parser.py" = ["F841"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = false
+follow_imports = "skip"
+ignore_missing_imports = true
