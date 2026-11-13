@@ -49,9 +49,12 @@ attached through renames and removals.
 
 ## Quick start
 
+Both packages build with hatchling, so you need Python 3.11+ and pip 21.3+ (or
+`uv`, which handles both). Run the installs from the repo root; there is no
+`pyproject.toml` at the root itself.
+
 ```bash
-pip install -e code-graph
-pip install -e ctx-sync
+python -m pip install -e code-graph -e ctx-sync
 
 code-graph build --root .
 ctx-sync --type call-graph --update --root . --target CALL_GRAPH.md
@@ -59,9 +62,9 @@ ctx-sync --type community  --update --root . --target ARCHITECTURE.md
 ctx-sync --type flows      --update --root . --target FLOWS.md
 ```
 
-Each document records its projection on the first line, and `ctx-sync` refuses
-to write a projection into a file marked with another one. Keep one file per
-type.
+Keep one file per type. `ctx-sync` carries no document-level type marker and does
+not check `--type` against the file: blocks are matched by their marker tag and
+entity ID, so a block of another type is left alone rather than rewritten.
 
 ## Projections
 
