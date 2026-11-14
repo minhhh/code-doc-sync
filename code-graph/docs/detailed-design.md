@@ -2203,7 +2203,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/graph/graph_store.py::GraphStore.__init__#7f2ae18d690b
+* flow=code-graph/src/codegraph/graph/graph_store.py::GraphStore.__init__#13652b27e5af
     * entry_point=code-graph/src/codegraph/graph/graph_store.py::GraphStore.__init__
     * criticality=0.445
     * nodes=6/7
@@ -2211,9 +2211,9 @@ listed twice is a re-encountered call whose subtree was not walked again. All
     * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._init_schema
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.commit
             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.commit
-    * → code-graph/src/codegraph/migrations.py::run_migrations
-        * → code-graph/src/codegraph/migrations.py::_set_schema_version
-        * → code-graph/src/codegraph/migrations.py::get_schema_version
+    * → code-graph/src/codegraph/graph/migrations.py::run_migrations
+        * → code-graph/src/codegraph/graph/migrations.py::_set_schema_version
+        * → code-graph/src/codegraph/graph/migrations.py::get_schema_version
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
@@ -2310,6 +2310,16 @@ listed twice is a re-encountered call whose subtree was not walked again. All
     * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.upsert_edge
     * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.upsert_node
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._make_qualified
+<!-- CTX-SYNC:FLOW-END -->
+
+<!-- CTX-SYNC:FLOW-START -->
+* flow=code-graph/src/codegraph/graph/migrations.py::_migrate_v1#56f44824748f
+    * entry_point=code-graph/src/codegraph/graph/migrations.py::_migrate_v1
+    * criticality=0.36
+    * nodes=3/3
+* code-graph/src/codegraph/graph/migrations.py::_migrate_v1
+    * → code-graph/src/codegraph/graph/migrations.py::_has_column
+    * → code-graph/src/codegraph/graph/migrations.py::_table_exists
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
@@ -2642,16 +2652,6 @@ listed twice is a re-encountered call whose subtree was not walked again. All
     * → code-graph/src/codegraph/languages/tsconfig.py::TsconfigResolver._match_and_probe
         * → code-graph/src/codegraph/languages/tsconfig.py::_match_pattern
         * → code-graph/src/codegraph/languages/tsconfig.py::_probe_path
-<!-- CTX-SYNC:FLOW-END -->
-
-<!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/migrations.py::_migrate_v1#7236b42b1eff
-    * entry_point=code-graph/src/codegraph/migrations.py::_migrate_v1
-    * criticality=0.36
-    * nodes=3/3
-* code-graph/src/codegraph/migrations.py::_migrate_v1
-    * → code-graph/src/codegraph/migrations.py::_has_column
-    * → code-graph/src/codegraph/migrations.py::_table_exists
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->

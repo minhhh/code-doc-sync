@@ -29,7 +29,7 @@ CLI surface). Ruff checks everything.
   `flows.py`, `arch.py`, `refactor.py`); `app.py` owns the root `Typer`,
   `options.py` the shared option aliases, `common.py` root resolution and
   `_emit`.
-- `src/codegraph/migrations.py` — migration framework lives here; the schema
+- `src/codegraph/graph/migrations.py` — migration framework lives here; the schema
   baseline is ours.
 - Everything else under `src/codegraph/` — the graph engine. Keep changes small
   and local; do not reformat wholesale, so diffs stay reviewable.

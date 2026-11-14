@@ -17,8 +17,8 @@ them, and how queries read the result.
 │ engine modules                                               │
 │ parser, incremental, postprocessing, flows, communities,     │
 │ analysis, changes, search, refactor                          │
-│   graph/    store (SQLite), migrations, export               │
-│   lib/      constants, store seams (open/paths/builtins)     │
+│   graph/    store (SQLite), migrations                       │
+│   lib/      constants, repo seam (open_store, root paths)    │
 │   languages/  tsconfig, rescript, spring, temporal           │
 └───────────────┬──────────────────────────────────────────────┘
                 │
@@ -121,7 +121,7 @@ previous rows intact.
 | `flow_snapshots` | Pre-computed flow summaries |
 | `risk_index` | Per-node risk score and coverage |
 
-Schema creation and evolution live in `migrations.py`: one baseline `v1`
+Schema creation and evolution live in `graph/migrations.py`: one baseline `v1`
 creates the final schema; future changes append `v2`, `v3`, …
 
 ## Query flow

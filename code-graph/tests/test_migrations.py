@@ -5,7 +5,7 @@ import tempfile
 from pathlib import Path
 
 from codegraph.graph import GraphStore
-from codegraph.migrations import (
+from codegraph.graph.migrations import (
     LATEST_VERSION,
     MIGRATIONS,
     get_schema_version,
@@ -110,7 +110,7 @@ class TestMigrations:
 
     def test_baseline_migration_idempotent(self):
         """Running the baseline migration twice should not fail."""
-        from codegraph.migrations import _migrate_v1
+        from codegraph.graph.migrations import _migrate_v1
 
         _migrate_v1(self.store._conn)
         _migrate_v1(self.store._conn)
