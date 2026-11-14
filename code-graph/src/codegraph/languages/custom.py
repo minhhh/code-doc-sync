@@ -18,7 +18,8 @@ languages always win — custom entries can neither override built-in file
 extensions nor reuse built-in language names.  At most
 ``MAX_CUSTOM_LANGUAGES`` entries are honoured per repo.
 
-See docs/CUSTOM_LANGUAGES.md for the full schema reference (answers #320).
+The full schema lives in ``CustomLanguage`` below; each field maps one-to-one
+to a key under ``[languages.<name>]`` (answers #320).
 """
 
 from __future__ import annotations
