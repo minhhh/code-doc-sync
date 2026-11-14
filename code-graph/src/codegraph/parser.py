@@ -6060,6 +6060,7 @@ class CodeParser:
         module: str,
         file_path: str,
         language: str,
+        _seen: Optional[set[tuple[str, str]]] = None,
     ) -> Optional[str]:
         """Resolve an imported symbol to its defining qualified name when possible."""
         if module and set(module) == {"."}:
@@ -6071,13 +6072,21 @@ class CodeParser:
             )
             if resolved:
                 return self._qualify(symbol_name, resolved, None)
+            # Otherwise the package's ``__init__`` re-exports the name.
+            package_init = Path(file_path).parent / "__init__.py"
+            if package_init.is_file():
+                return self._resolve_exported_symbol(
+                    str(package_init), symbol_name, _seen,
+                )
             return None
 
         resolved = self._resolve_module_to_file(module, file_path, language)
         if not resolved:
             return None
 
-        export_target = self._resolve_exported_symbol(resolved, symbol_name)
+        export_target = self._resolve_exported_symbol(
+            resolved, symbol_name, _seen,
+        )
         if export_target:
             return export_target
         return self._qualify(symbol_name, resolved, None)
@@ -6088,7 +6097,12 @@ class CodeParser:
         symbol_name: str,
         seen: Optional[set[tuple[str, str]]] = None,
     ) -> Optional[str]:
-        """Resolve a JS/TS symbol through common re-export/barrel patterns."""
+        """Resolve a symbol through re-export/barrel patterns.
+
+        JS/TS use ``export { x } from './y'`` and ``export * from './y'``.
+        Python uses package ``__init__`` files, where ``from .store import x``
+        makes ``x`` an attribute of the package.
+        """
         cache_key = f"{module_file}::{symbol_name}"
         if cache_key in self._export_symbol_cache:
             return self._export_symbol_cache[cache_key]
@@ -6102,7 +6116,7 @@ class CodeParser:
 
         path = Path(module_file)
         language = self.detect_language(path)
-        if language not in ("javascript", "typescript", "tsx", "vue"):
+        if language not in ("javascript", "typescript", "tsx", "vue", "python"):
             return None
 
         try:
@@ -6124,6 +6138,20 @@ class CodeParser:
             result = self._qualify(symbol_name, module_file, None)
             self._export_symbol_cache[cache_key] = result
             return result
+
+        if language == "python":
+            # Package re-export: ``pkg/__init__.py`` holds
+            # ``from .store import _sanitize_name``, so the defining module is
+            # the import's source, not the package file.
+            source_module = import_map.get(symbol_name)
+            if not source_module:
+                self._export_symbol_cache[cache_key] = None
+                return None
+            reexport = self._resolve_imported_symbol(
+                symbol_name, source_module, module_file, language, seen,
+            )
+            self._export_symbol_cache[cache_key] = reexport
+            return reexport
 
         for child in tree.root_node.children:
             if child.type != "export_statement":

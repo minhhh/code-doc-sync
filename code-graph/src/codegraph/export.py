@@ -66,10 +66,10 @@ def canonical_graph_type(value: str) -> str:
 def flow_key(entry_point: str, path: list[str]) -> str:
     """Stable text identity for one flow.
 
-    A flow is a path, not an entry point: one entry point may legitimately
-    produce several flows, and two paths of equal length are still distinct.
-    The digest is over the ordered qualified names, so it survives rebuilds
-    (where the integer id is reissued) and separates sibling paths.
+    The digest covers the ordered qualified names of the traced path, so the key
+    survives rebuilds, where the integer flow id is reissued. Tracing emits one
+    flow per entry point, so the path digest is a stability measure rather than
+    a disambiguator.
     """
     digest = hashlib.sha1(
         "\n".join(path).encode("utf-8"), usedforsecurity=False

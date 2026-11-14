@@ -1575,3 +1575,80 @@ class TestPythonRelativeImportResolution:
 
         expected = f"{(pkg / 'common.py').resolve()}::_emit"
         assert expected in self._calls(source)
+
+
+class TestPythonReexportResolution:
+    """Names re-exported by a package ``__init__.py`` resolve to their definition.
+
+    ``from .graph import _sanitize_name`` names the package, but the function
+    lives in ``graph/store.py``. The import used to resolve to the package file,
+    producing a qualified target that matched no node, so callers of a
+    re-exported symbol had an outgoing edge into nothing.
+    """
+
+    def setup_method(self):
+        self.parser = CodeParser()
+
+    def _package(self, tmp_path: Path) -> Path:
+        pkg = tmp_path / "pkg"
+        (pkg / "api").mkdir(parents=True)
+        (pkg / "__init__.py").write_text("")
+        (pkg / "impl.py").write_text(
+            "class Thing:\n    pass\n\n\ndef helper():\n    pass\n"
+        )
+        (pkg / "api" / "__init__.py").write_text(
+            "from ..impl import Thing, helper\n\n__all__ = ['Thing', 'helper']\n"
+        )
+        return pkg
+
+    def _calls(self, source: Path) -> list[str]:
+        _, edges = self.parser.parse_file(source)
+        return [e.target for e in edges if e.kind == "CALLS"]
+
+    def test_function_reexported_by_package_init(self, tmp_path: Path):
+        pkg = self._package(tmp_path)
+        source = pkg / "cli.py"
+        source.write_text("from .api import helper\n\n\ndef run():\n    helper()\n")
+
+        expected = f"{(pkg / 'impl.py').resolve()}::helper"
+        assert expected in self._calls(source)
+
+    def test_class_reexported_by_package_init(self, tmp_path: Path):
+        pkg = self._package(tmp_path)
+        source = pkg / "cli.py"
+        source.write_text("from .api import Thing\n\n\ndef run():\n    Thing()\n")
+
+        expected = f"{(pkg / 'impl.py').resolve()}::Thing"
+        assert expected in self._calls(source)
+
+    def test_own_package_init_reexport(self, tmp_path: Path):
+        pkg = self._package(tmp_path)
+        (pkg / "__init__.py").write_text("from .impl import helper\n")
+        source = pkg / "cli.py"
+        source.write_text("from . import helper\n\n\ndef run():\n    helper()\n")
+
+        expected = f"{(pkg / 'impl.py').resolve()}::helper"
+        assert expected in self._calls(source)
+
+    def test_mutual_reexport_terminates(self, tmp_path: Path):
+        pkg = tmp_path / "pkg"
+        pkg.mkdir()
+        (pkg / "__init__.py").write_text("from .first import helper\n")
+        (pkg / "first.py").write_text("from .second import helper\n")
+        (pkg / "second.py").write_text(
+            "from .first import helper\n\n\ndef helper():\n    pass\n"
+        )
+        source = pkg / "cli.py"
+        source.write_text("from . import helper\n\n\ndef run():\n    helper()\n")
+
+        expected = f"{(pkg / 'second.py').resolve()}::helper"
+        assert expected in self._calls(source)
+
+    def test_reexport_of_missing_module_stays_bare(self, tmp_path: Path):
+        pkg = tmp_path / "pkg"
+        pkg.mkdir()
+        (pkg / "__init__.py").write_text("from .nowhere import helper\n")
+        source = pkg / "cli.py"
+        source.write_text("from . import helper\n\n\ndef run():\n    helper()\n")
+
+        assert "helper" in self._calls(source)
