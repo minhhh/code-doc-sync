@@ -6,9 +6,51 @@ import logging
 from typing import Any
 
 from .graph import edge_to_dict, node_to_dict
-from .lib.store import BUILTIN_CALL_NAMES, open_store, resolve_graph_file_paths
+from .lib.repo import open_store, resolve_graph_file_paths
 
 logger = logging.getLogger(__name__)
+
+# Common JS/TS builtin method names filtered from callers_of results.
+# "Who calls .map()?" returns hundreds of hits and is never useful.
+# These are kept in the graph (callees_of still shows them) but excluded
+# when doing reverse call tracing to reduce noise.
+BUILTIN_CALL_NAMES: set[str] = {
+    "map", "filter", "reduce", "reduceRight", "forEach", "find", "findIndex",
+    "some", "every", "includes", "indexOf", "lastIndexOf",
+    "push", "pop", "shift", "unshift", "splice", "slice",
+    "concat", "join", "flat", "flatMap", "sort", "reverse", "fill",
+    "keys", "values", "entries", "from", "isArray", "of", "at",
+    "trim", "trimStart", "trimEnd", "split", "replace", "replaceAll",
+    "match", "matchAll", "search", "substring", "substr",
+    "toLowerCase", "toUpperCase", "startsWith", "endsWith",
+    "padStart", "padEnd", "repeat", "charAt", "charCodeAt",
+    "assign", "freeze", "defineProperty", "getOwnPropertyNames",
+    "hasOwnProperty", "create", "is", "fromEntries",
+    "log", "warn", "error", "info", "debug", "trace", "dir", "table",
+    "time", "timeEnd", "assert", "clear", "count",
+    "then", "catch", "finally", "resolve", "reject", "all", "allSettled", "race", "any",
+    "parse", "stringify",
+    "floor", "ceil", "round", "random", "max", "min", "abs", "pow", "sqrt",
+    "addEventListener", "removeEventListener", "querySelector", "querySelectorAll",
+    "getElementById", "createElement", "appendChild", "removeChild",
+    "setAttribute", "getAttribute", "preventDefault", "stopPropagation",
+    "setTimeout", "clearTimeout", "setInterval", "clearInterval",
+    "toString", "valueOf", "toJSON", "toISOString",
+    "getTime", "getFullYear", "now",
+    "isNaN", "parseInt", "parseFloat", "toFixed",
+    "encodeURIComponent", "decodeURIComponent",
+    "call", "apply", "bind", "next",
+    "emit", "on", "off", "once",
+    "pipe", "write", "read", "end", "close", "destroy",
+    "send", "status", "json", "redirect",
+    "set", "get", "delete", "has",
+    "findUnique", "findFirst", "findMany", "createMany",
+    "update", "updateMany", "deleteMany", "upsert",
+    "aggregate", "groupBy", "transaction",
+    "describe", "it", "test", "expect", "beforeEach", "afterEach",
+    "beforeAll", "afterAll", "mock", "spyOn",
+    "require", "fetch",
+}
 
 _QUERY_PATTERNS = {
     "callers_of": "Find all functions that call a given function",

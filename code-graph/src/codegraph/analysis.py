@@ -10,7 +10,7 @@ from typing import Any
 
 from .graph import GraphStore, edge_to_dict, _sanitize_name, node_to_dict
 from .incremental import get_changed_files, get_staged_and_unstaged
-from .lib.store import open_store, resolve_graph_file_paths
+from .lib.repo import open_store, resolve_graph_file_paths
 
 logger = logging.getLogger(__name__)
 

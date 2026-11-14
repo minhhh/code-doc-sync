@@ -257,7 +257,7 @@ class TestGraphStore:
         store = GraphStore.__new__(GraphStore)
         store._conn = conn
 
-        with caplog.at_level(logging.DEBUG, logger="codegraph.graph.store"):
+        with caplog.at_level(logging.DEBUG, logger="codegraph.graph.graph_store"):
             result = store.get_all_community_ids()
 
         assert result == {}
@@ -270,7 +270,7 @@ class TestGraphStore:
         store = GraphStore.__new__(GraphStore)
         store._conn = conn
 
-        with caplog.at_level(logging.DEBUG, logger="codegraph.graph.store"):
+        with caplog.at_level(logging.DEBUG, logger="codegraph.graph.graph_store"):
             result = store.get_communities_list()
 
         assert result == []

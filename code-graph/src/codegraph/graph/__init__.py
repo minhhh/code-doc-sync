@@ -1,12 +1,12 @@
 """The code graph artifact: nodes, edges, and their SQLite store.
 
-``store`` holds the implementation; this package re-exports the names other
-modules import so ``from codegraph.graph import GraphStore`` keeps working.
+``graph_store`` holds the implementation; this package re-exports the names
+other modules import so ``from codegraph.graph import GraphStore`` keeps working.
 """
 
 from __future__ import annotations
 
-from .store import (
+from .graph_store import (
     FlowAdjacency,
     GraphEdge,
     GraphNode,

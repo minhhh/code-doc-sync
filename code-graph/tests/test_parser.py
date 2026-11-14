@@ -1591,7 +1591,7 @@ class TestPythonReexportResolution:
     """Names re-exported by a package ``__init__.py`` resolve to their definition.
 
     ``from .graph import _sanitize_name`` names the package, but the function
-    lives in ``graph/store.py``. The import used to resolve to the package file,
+    lives in ``graph/graph_store.py``. The import used to resolve to the package file,
     producing a qualified target that matched no node, so callers of a
     re-exported symbol had an outgoing edge into nothing.
     """

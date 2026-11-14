@@ -13,7 +13,7 @@ import sqlite3
 from typing import Any, Optional
 
 from .graph import GraphStore, _sanitize_name
-from .lib.store import open_store
+from .lib.repo import open_store
 
 logger = logging.getLogger(__name__)
 
