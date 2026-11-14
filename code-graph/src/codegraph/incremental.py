@@ -945,48 +945,49 @@ def full_build(
 
     use_serial = os.environ.get("CODE_GRAPH_SERIAL_PARSE", "") == "1"
     writer = _PendingWrites(store, _store_batch_size())
-
-    if use_serial or file_count < 8:
-        # Serial fallback (for debugging or tiny repos)
-        for i, rel_path in enumerate(files, 1):
-            full_path = repo_root / rel_path
-            try:
-                source = full_path.read_bytes()
-                fhash = hashlib.sha256(source).hexdigest()
-                nodes, edges = parser.parse_bytes(full_path, source)
-                writer.add(str(full_path), nodes, edges, fhash)
-                total_nodes += len(nodes)
-                total_edges += len(edges)
-            except (OSError, PermissionError) as e:
-                errors.append({"file": rel_path, "error": str(e)})
-            except Exception as e:
-                logger.warning("Error parsing %s: %s", rel_path, e)
-                errors.append({"file": rel_path, "error": str(e)})
-            if i % 50 == 0 or i == file_count:
-                logger.info("Progress: %d/%d files parsed", i, file_count)
-    else:
-        # Parallel parsing — store calls remain serial (SQLite single-writer).
-        # Executor kind auto-selected: process on Linux/macOS/Windows-TTY,
-        # thread on Windows non-TTY stdio to avoid pipe-handle inheritance
-        # deadlock (issues #46, #136). Override via CODE_GRAPH_PARSE_EXECUTOR env.
-        args_list = [(rel_path, str(repo_root)) for rel_path in files]
-        with _make_executor(_MAX_PARSE_WORKERS) as executor:
-            for i, (rel_path, nodes, edges, error, fhash) in enumerate(
-                executor.map(_parse_single_file, args_list, chunksize=20),
-                1,
-            ):
-                if error:
-                    logger.warning("Error parsing %s: %s", rel_path, error)
-                    errors.append({"file": rel_path, "error": error})
-                    continue
+    try:
+        if use_serial or file_count < 8:
+            # Serial fallback (for debugging or tiny repos)
+            for i, rel_path in enumerate(files, 1):
                 full_path = repo_root / rel_path
-                writer.add(str(full_path), nodes, edges, fhash)
-                total_nodes += len(nodes)
-                total_edges += len(edges)
-                if i % 200 == 0 or i == file_count:
+                try:
+                    source = full_path.read_bytes()
+                    fhash = hashlib.sha256(source).hexdigest()
+                    nodes, edges = parser.parse_bytes(full_path, source)
+                    writer.add(str(full_path), nodes, edges, fhash)
+                    total_nodes += len(nodes)
+                    total_edges += len(edges)
+                except (OSError, PermissionError) as e:
+                    errors.append({"file": rel_path, "error": str(e)})
+                except Exception as e:
+                    logger.warning("Error parsing %s: %s", rel_path, e)
+                    errors.append({"file": rel_path, "error": str(e)})
+                if i % 50 == 0 or i == file_count:
                     logger.info("Progress: %d/%d files parsed", i, file_count)
+        else:
+            # Parallel parsing — store calls remain serial (SQLite single-writer).
+            # Executor kind auto-selected: process on Linux/macOS/Windows-TTY,
+            # thread on Windows non-TTY stdio to avoid pipe-handle inheritance
+            # deadlock (issues #46, #136). Override via CODE_GRAPH_PARSE_EXECUTOR env.
+            args_list = [(rel_path, str(repo_root)) for rel_path in files]
+            with _make_executor(_MAX_PARSE_WORKERS) as executor:
+                for i, (rel_path, nodes, edges, error, fhash) in enumerate(
+                    executor.map(_parse_single_file, args_list, chunksize=20),
+                    1,
+                ):
+                    if error:
+                        logger.warning("Error parsing %s: %s", rel_path, error)
+                        errors.append({"file": rel_path, "error": error})
+                        continue
+                    full_path = repo_root / rel_path
+                    writer.add(str(full_path), nodes, edges, fhash)
+                    total_nodes += len(nodes)
+                    total_edges += len(edges)
+                    if i % 200 == 0 or i == file_count:
+                        logger.info("Progress: %d/%d files parsed", i, file_count)
 
-    writer.flush()
+    finally:
+        writer.flush()
     store.set_metadata("last_updated", time.strftime("%Y-%m-%dT%H:%M:%S"))
     store.set_metadata("last_build_type", "full")
     _store_vcs_metadata(repo_root, store)
@@ -1083,40 +1084,41 @@ def incremental_update(
 
     use_serial = os.environ.get("CODE_GRAPH_SERIAL_PARSE", "") == "1"
     writer = _PendingWrites(store, _store_batch_size())
+    try:
+        if use_serial or len(to_parse) < 8:
+            for rel_path in to_parse:
+                abs_path = repo_root / rel_path
+                try:
+                    source = abs_path.read_bytes()
+                    fhash = hashlib.sha256(source).hexdigest()
+                    nodes, edges = parser.parse_bytes(abs_path, source)
+                    writer.add(str(abs_path), nodes, edges, fhash)
+                    total_nodes += len(nodes)
+                    total_edges += len(edges)
+                except (OSError, PermissionError) as e:
+                    errors.append({"file": rel_path, "error": str(e)})
+                except Exception as e:
+                    logger.warning("Error parsing %s: %s", rel_path, e)
+                    errors.append({"file": rel_path, "error": str(e)})
+        else:
+            # See full-build comment above for executor kind rationale.
+            args_list = [(rel_path, str(repo_root)) for rel_path in to_parse]
+            with _make_executor(_MAX_PARSE_WORKERS) as executor:
+                for rel_path, nodes, edges, error, fhash in executor.map(
+                    _parse_single_file,
+                    args_list,
+                    chunksize=20,
+                ):
+                    if error:
+                        logger.warning("Error parsing %s: %s", rel_path, error)
+                        errors.append({"file": rel_path, "error": error})
+                        continue
+                    writer.add(str(repo_root / rel_path), nodes, edges, fhash)
+                    total_nodes += len(nodes)
+                    total_edges += len(edges)
 
-    if use_serial or len(to_parse) < 8:
-        for rel_path in to_parse:
-            abs_path = repo_root / rel_path
-            try:
-                source = abs_path.read_bytes()
-                fhash = hashlib.sha256(source).hexdigest()
-                nodes, edges = parser.parse_bytes(abs_path, source)
-                writer.add(str(abs_path), nodes, edges, fhash)
-                total_nodes += len(nodes)
-                total_edges += len(edges)
-            except (OSError, PermissionError) as e:
-                errors.append({"file": rel_path, "error": str(e)})
-            except Exception as e:
-                logger.warning("Error parsing %s: %s", rel_path, e)
-                errors.append({"file": rel_path, "error": str(e)})
-    else:
-        # See full-build comment above for executor kind rationale.
-        args_list = [(rel_path, str(repo_root)) for rel_path in to_parse]
-        with _make_executor(_MAX_PARSE_WORKERS) as executor:
-            for rel_path, nodes, edges, error, fhash in executor.map(
-                _parse_single_file,
-                args_list,
-                chunksize=20,
-            ):
-                if error:
-                    logger.warning("Error parsing %s: %s", rel_path, error)
-                    errors.append({"file": rel_path, "error": error})
-                    continue
-                writer.add(str(repo_root / rel_path), nodes, edges, fhash)
-                total_nodes += len(nodes)
-                total_edges += len(edges)
-
-    writer.flush()
+    finally:
+        writer.flush()
     store.set_metadata("last_updated", time.strftime("%Y-%m-%dT%H:%M:%S"))
     store.set_metadata("last_build_type", "incremental")
     _store_vcs_metadata(repo_root, store)

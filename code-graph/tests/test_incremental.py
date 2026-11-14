@@ -1,6 +1,7 @@
 """Tests for the incremental graph update module."""
 
 import subprocess
+from pathlib import Path
 from unittest.mock import MagicMock, patch  # noqa: F401 – patch used in tests
 
 from codegraph.graph import GraphStore
@@ -646,6 +647,40 @@ class TestStoreBatching:
 
             assert batch_store.call_count == 0
             assert single_store.call_count == 3
+        finally:
+            store.close()
+
+    def test_interrupt_still_flushes_buffered_files(self, tmp_path):
+        """A BaseException mid-build must not drop files already buffered."""
+        names = self._repo(tmp_path, 3)
+        store = GraphStore(tmp_path / "test.db")
+        try:
+            from codegraph.parser import CodeParser
+
+            real_parse = CodeParser.parse_bytes
+
+            def interrupted(self, path, source):
+                if str(path).endswith("mod1.py"):
+                    raise KeyboardInterrupt
+                return real_parse(self, path, source)
+
+            with (
+                patch.dict("os.environ", {"CODE_GRAPH_STORE_BATCH_SIZE": "5"}),
+                patch(
+                    "codegraph.incremental.get_all_tracked_files",
+                    return_value=names,
+                ),
+                patch.object(CodeParser, "parse_bytes", interrupted),
+            ):
+                try:
+                    full_build(tmp_path, store)
+                except KeyboardInterrupt:
+                    pass
+                else:  # pragma: no cover - the patch always raises
+                    raise AssertionError("expected KeyboardInterrupt")
+
+            stored = {Path(f).name for f in store.get_all_files()}
+            assert stored == {"mod0.py"}
         finally:
             store.close()
 
