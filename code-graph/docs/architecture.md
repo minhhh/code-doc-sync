@@ -49,8 +49,9 @@ code-graph build
        │    │    ├─ emit File/Class/Function/Type/Test nodes
        │    │    ├─ emit CALLS/IMPORTS_FROM/INHERITS/CONTAINS/TESTED_BY edges
        │    │    └─ resolve cross-file targets (imports, aliases, re-exports)
+       │    │       and typed receivers (declared parameter/constructor types)
        │    └─ GraphStore.store_file_nodes_edges()  # one transaction per file
-       ├─ language-specific resolvers (ReScript, Spring, Temporal)
+       ├─ resolvers (ReScript, Spring, Temporal, typed receivers)
        ├─ metadata (last_updated, VCS branch/revision)
        └─ postprocess
             ├─ signatures  (nodes.signature)
