@@ -418,19 +418,35 @@ def find_dead_code(
         ):
             continue
 
-        # Any decorator can register or wrap the callable outside the call
-        # graph, so a decorated node is never reported as dead:
-        # @app.callback and @app.command (Typer/Click), @pytest.fixture,
-        # @property and @abstractmethod (attribute and polymorphic access),
-        # @Scheduled and @EventListener (Spring), @dataclass (instantiated as a
-        # type), @HostListener (Angular events), and anything else a framework
-        # reads. Static CALLS edges cannot see those hooks, so the alternative
-        # is a false positive on live code.
+        # Skip decorated nodes whose decorator invokes them outside the call
+        # graph. The list is deliberately closed: a decorator only counts when
+        # the framework is known to call the node itself, so a locally applied
+        # decorator (@lru_cache on an uncalled helper, @staticmethod on a dead
+        # method) still reports as dead. Storing decorators is what makes this
+        # check work at all; it read an absent field before.
         decorators = node.extra.get("decorators", ())
         if isinstance(decorators, str):
             decorators = (decorators,)
         if decorators:
-            continue
+            if node.kind in ("Function", "Test"):
+                if any(
+                    # @property -- invoked via attribute access
+                    # @abstractmethod -- polymorphic dispatch
+                    # @classmethod/@staticmethod -- called via Class.method()
+                    d in ("property", "abstractmethod", "classmethod", "staticmethod")
+                    or d.endswith(".abstractmethod")
+                    # @app.callback -- Typer/Click invokes the root callback
+                    or d == "callback"
+                    or d.endswith(".callback")
+                    # Angular @HostListener -- framework event system
+                    or d.startswith("HostListener")
+                    for d in decorators
+                ):
+                    continue
+            if node.kind == "Class":
+                # @dataclass classes are instantiated as types, not via CALLS
+                if any("dataclass" in d for d in decorators):
+                    continue
 
         # Skip methods that override an @abstractmethod in a base class --
         # they are called polymorphically via the base class reference.

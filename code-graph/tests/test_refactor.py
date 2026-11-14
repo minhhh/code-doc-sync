@@ -190,6 +190,30 @@ class TestFindDeadCode:
         dead_names = {d["name"] for d in dead}
         assert "main" not in dead_names
 
+    def _add_decorated(self, name: str, decorator: str) -> None:
+        self.store.upsert_node(NodeInfo(
+            kind="Function", name=name, file_path="/repo/app.py",
+            line_start=90, line_end=95, language="python",
+            extra={"decorators": [decorator]},
+        ))
+        self.store.commit()
+
+    def test_find_dead_code_excludes_framework_callback(self):
+        """@app.callback() hooks are invoked by Typer, not by a CALLS edge."""
+        self._add_decorated("_root_callback", "app.callback()")
+
+        dead = find_dead_code(self.store)
+
+        assert "_root_callback" not in {d["name"] for d in dead}
+
+    def test_find_dead_code_keeps_other_decorated_nodes(self):
+        """A decorator outside the allowlist does not make a node live."""
+        self._add_decorated("_uncalled_helper", "functools.lru_cache(maxsize=8)")
+
+        dead = find_dead_code(self.store)
+
+        assert "_uncalled_helper" in {d["name"] for d in dead}
+
     def test_find_dead_code_excludes_tests(self):
         """Test nodes are not flagged as dead code."""
         dead = find_dead_code(self.store)

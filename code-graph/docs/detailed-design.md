@@ -238,15 +238,16 @@ Flows are stored sorted by criticality descending.
 `TESTED_BY`, `IMPORTS_FROM`, `REFERENCES`, or `INHERITS` edge, after these
 exclusions:
 
-- **Any decorator.** A decorated node is never reported as dead. The decorator
-  is where the framework registers or wraps it — `@app.callback` and
-  `@app.command` (Typer/Click), `@pytest.fixture`, `@property`,
-  `@abstractmethod`, `@Scheduled` and `@EventListener` (Spring), `@dataclass`,
-  `@HostListener` (Angular) — and no `CALLS` edge can represent that hook, so
-  the rule is "has a decorator", not a curated list of decorator names.
-  Anything narrower produces false positives on live code, which is the failure
-  mode that matters here: a caller that cannot be seen looks exactly like a
-  function nobody calls.
+- **A decorator on the allowlist.** The node is invoked by a framework that no
+  `CALLS` edge can represent: `@property` (attribute access), `@abstractmethod`
+  (polymorphic dispatch), `@classmethod` and `@staticmethod` (called through the
+  class), `@app.callback` (a Typer/Click root hook), `@HostListener` (Angular
+  events), and `@dataclass` on a class (instantiated as a type). The list is
+  closed on purpose. A decorator only earns its place when the framework is
+  known to call the node itself, so `@functools.lru_cache` on an uncalled
+  helper, or a project-specific `@timed`, still reports as dead: precision here
+  is what keeps the report usable, and widening the rule to "any decorator"
+  trades that away for recall nobody asked for.
 - Entry-point conventions: the name patterns and framework decorators used for
   flow roots.
 - Framework base classes, and class names carrying a known CDK suffix.
@@ -255,8 +256,9 @@ exclusions:
 - Classes with at least one live member.
 
 The parser stores decorators on the node as `extra.decorators`, for functions,
-tests, and classes. The same field feeds decorator-based entry-point detection,
-so a Typer root callback is both a flow root and not dead.
+tests, and classes. Without that field the allowlist could never match, which is
+why every decorated node used to look dead. The same field feeds
+decorator-based entry-point detection.
 
 ## Change risk
 
