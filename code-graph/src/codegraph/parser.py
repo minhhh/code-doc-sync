@@ -808,6 +808,9 @@ class CodeParser:
         # Pascal ``uses`` unit -> file resolution (case-insensitive).
         self._pascal_unit_cache: dict[str, Optional[str]] = {}
         self._pascal_dir_cache: dict[str, dict[str, Path]] = {}
+        # Variable name -> declared class name for the file being parsed.
+        # Populated per parse so member calls can carry a receiver type.
+        self._type_bindings: dict[str, str] = {}
         # Config-driven custom languages (.code-graph/languages.toml).
         # The built-in tables stay shared module-level constants; only when a
         # repo defines custom languages does this parser switch to merged
@@ -1014,6 +1017,9 @@ class CodeParser:
         # Pre-scan for import mappings and defined names
         import_map, defined_names = self._collect_file_scope(
             tree.root_node, language, source,
+        )
+        self._type_bindings = self._collect_type_bindings(
+            tree.root_node, language,
         )
 
         # Walk the tree
@@ -5106,10 +5112,26 @@ class CodeParser:
                 if receiver:
                     call_extra["receiver"] = receiver
 
+            # Record the receiver of ``obj.method()`` for every language that
+            # drops it from the call name. When the receiver's class is
+            # declared in the file, carry that too: the receiver resolver
+            # rewrites the edge only when the class really declares the method.
+            if not call_extra.get("receiver"):
+                receiver = self._get_call_receiver(child, language)
+                if receiver:
+                    call_extra["receiver"] = receiver
+                    declared = self._type_bindings.get(receiver)
+                    if declared and receiver not in ("self", "this", "cls"):
+                        call_extra["receiver_type"] = declared
+
             # When a receiver is present, skip scope-based resolution: the method
             # lives on the receiver's type, not in the current file's scope.
             # The spring_resolver post-pass will do the correct cross-type lookup.
-            if call_extra.get("receiver"):
+            # Other languages still go through scope resolution, because an
+            # imported free function can be called through an object
+            # (``obj.helper()``); the receiver resolver only touches edges that
+            # remain bare.
+            if language in ("java", "pascal") and call_extra.get("receiver"):
                 target = call_name
             else:
                 target = self._resolve_call_target(
@@ -5828,6 +5850,172 @@ class CodeParser:
                         # Last identifier is the local name
                         if names:
                             import_map[names[-1]] = module
+
+    # Languages with typed declarations we can read a receiver's class from.
+    _TYPED_RECEIVER_LANGUAGES = frozenset({
+        "python", "javascript", "typescript", "tsx",
+    })
+
+    @staticmethod
+    def _simple_type_name(text: str) -> Optional[str]:
+        """Reduce a declared type to a bare class name, or None.
+
+        ``Foo`` and ``mod.Foo`` are usable as a receiver type; ``list[Foo]``,
+        ``Foo | None``, ``Optional[Foo]`` and quoted forward references that
+        still carry generics are not, because they don't name one class.
+        """
+        cleaned = text.strip().strip("'\"").strip()
+        if not cleaned or any(ch in cleaned for ch in "[]|, "):
+            return None
+        cleaned = cleaned.rsplit(".", 1)[-1]
+        return cleaned if cleaned.isidentifier() else None
+
+    def _collect_type_bindings(
+        self, root, language: str,
+    ) -> dict[str, str]:
+        """Map variable name -> declared class name for one file.
+
+        Sources are parameter annotations (``def f(store: Store)``,
+        ``function f(store: Store)``) and constructor assignments
+        (``s = Store()``, ``const s = new Store()``). A name bound to two
+        different classes is dropped rather than guessed.
+
+        Only used to qualify member calls, so an unknown entry is harmless:
+        the resolver rewrites a bare call only if the named class actually
+        declares that method.
+        """
+        if language not in self._TYPED_RECEIVER_LANGUAGES:
+            return {}
+
+        bindings: dict[str, str] = {}
+        conflicts: set[str] = set()
+
+        def bind(name: str, declared: Optional[str]) -> None:
+            if not name or not declared or name in conflicts:
+                return
+            previous = bindings.get(name)
+            if previous is None:
+                bindings[name] = declared
+            elif previous != declared:
+                conflicts.add(name)
+                bindings.pop(name, None)
+
+        stack = [root]
+        while stack:
+            node = stack.pop()
+            node_type = node.type
+
+            if language == "python":
+                if node_type in (
+                    "typed_parameter", "typed_default_parameter",
+                ):
+                    name_node = node.children[0]
+                    type_node = next(
+                        (c for c in node.children if c.type == "type"), None,
+                    )
+                    if name_node.type == "identifier" and type_node is not None:
+                        bind(
+                            name_node.text.decode("utf-8", errors="replace"),
+                            self._simple_type_name(
+                                type_node.text.decode("utf-8", errors="replace")
+                            ),
+                        )
+                elif node_type == "assignment":
+                    left = node.child_by_field_name("left")
+                    if left is not None and left.type == "identifier":
+                        name = left.text.decode("utf-8", errors="replace")
+                        annotated = node.child_by_field_name("type")
+                        value = node.child_by_field_name("right")
+                        if annotated is not None:
+                            bind(name, self._simple_type_name(
+                                annotated.text.decode("utf-8", errors="replace")
+                            ))
+                        elif (
+                            value is not None and value.type == "call"
+                            and value.children
+                            and value.children[0].type == "identifier"
+                        ):
+                            bind(name, value.children[0].text.decode(
+                                "utf-8", errors="replace"
+                            ))
+            else:
+                # JS/TS: typed parameters and ``new`` assignments.
+                if node_type in ("required_parameter", "optional_parameter"):
+                    name_node = node.child_by_field_name("pattern")
+                    annotated = next(
+                        (c for c in node.children if c.type == "type_annotation"),
+                        None,
+                    )
+                    if (
+                        name_node is not None and name_node.type == "identifier"
+                        and annotated is not None
+                    ):
+                        type_name = next(
+                            (c for c in annotated.children
+                             if c.type == "type_identifier"),
+                            None,
+                        )
+                        if type_name is not None:
+                            bind(
+                                name_node.text.decode("utf-8", errors="replace"),
+                                self._simple_type_name(
+                                    type_name.text.decode("utf-8", errors="replace")
+                                ),
+                            )
+                elif node_type == "variable_declarator":
+                    name_node = node.child_by_field_name("name")
+                    value = node.child_by_field_name("value")
+                    if (
+                        name_node is not None and name_node.type == "identifier"
+                        and value is not None
+                        and value.type == "new_expression"
+                    ):
+                        ctor = value.child_by_field_name("constructor")
+                        if ctor is None:
+                            ctor = next(
+                                (c for c in value.children
+                                 if c.type in ("identifier", "member_expression")),
+                                None,
+                            )
+                        if ctor is not None:
+                            bind(
+                                name_node.text.decode("utf-8", errors="replace"),
+                                self._simple_type_name(
+                                    ctor.text.decode("utf-8", errors="replace")
+                                ),
+                            )
+
+            stack.extend(node.children)
+
+        return bindings
+
+    # Callee node types that wrap ``receiver.method``.
+    _MEMBER_CALLEE_TYPES = frozenset({
+        "attribute", "member_expression", "field_expression",
+        "selector_expression", "navigation_expression",
+    })
+
+    def _get_call_receiver(self, node, language: str) -> Optional[str]:
+        """Return the receiver of ``obj.method()`` when it is one identifier.
+
+        Nested receivers (``self.conn.commit()``, ``a.b.c()``) and call
+        results (``f().method()``) return None: their type isn't declared
+        anywhere, so there is nothing to resolve against.
+        """
+        if not node.children:
+            return None
+        callee = node.children[0]
+        if callee.type not in self._MEMBER_CALLEE_TYPES:
+            return None
+        for child in callee.children:
+            if child.type in (
+                "identifier", "property_identifier", "field_identifier",
+                "simple_identifier", "this", "self",
+            ):
+                return child.text.decode("utf-8", errors="replace")
+            if child.type not in (".", "?.", "::", "->", "!"):
+                return None
+        return None
 
     def _resolve_module_to_file(
         self, module: str, file_path: str, language: str,
