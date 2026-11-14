@@ -181,9 +181,9 @@ A node is an entry point if any of these hold:
 
 1. No incoming `CALLS` edge. Edges sourced at `File` nodes are excluded from
    this test, so a function called only from module scope still counts.
-2. A decorator matches a framework pattern: `app.<verb>`, `router.<verb>`,
-   `blueprint.route`, `click.command`, `<group>.command`, `field_validator`,
-   `celery.task`, and their siblings.
+2. A decorator matches a framework pattern: `app.<verb>`, `app.callback`,
+   `router.<verb>`, `blueprint.route`, `click.command`, `<group>.command`,
+   `field_validator`, `celery.task`, and their siblings.
 3. The name matches `main`, `__main__`, `test_*`, `Test[A-Z]…`, `on_*`,
    `handle_*`, `handler`, `lambda_handler`, `upgrade`, or the other migration
    entry names.
@@ -231,6 +231,32 @@ name or qualified name contains one of `SECURITY_KEYWORDS`, at most once per
 node. Result is clamped to `[0, 1]` and rounded to 4 decimals.
 
 Flows are stored sorted by criticality descending.
+
+## Dead code
+
+`find_dead_code` reports functions and classes with no incoming `CALLS`,
+`TESTED_BY`, `IMPORTS_FROM`, `REFERENCES`, or `INHERITS` edge, after these
+exclusions:
+
+- **Any decorator.** A decorated node is never reported as dead. The decorator
+  is where the framework registers or wraps it — `@app.callback` and
+  `@app.command` (Typer/Click), `@pytest.fixture`, `@property`,
+  `@abstractmethod`, `@Scheduled` and `@EventListener` (Spring), `@dataclass`,
+  `@HostListener` (Angular) — and no `CALLS` edge can represent that hook, so
+  the rule is "has a decorator", not a curated list of decorator names.
+  Anything narrower produces false positives on live code, which is the failure
+  mode that matters here: a caller that cannot be seen looks exactly like a
+  function nobody calls.
+- Entry-point conventions: the name patterns and framework decorators used for
+  flow roots.
+- Framework base classes, and class names carrying a known CDK suffix.
+- Methods overriding an `@abstractmethod` in a base class: they are reached
+  through the base reference.
+- Classes with at least one live member.
+
+The parser stores decorators on the node as `extra.decorators`, for functions,
+tests, and classes. The same field feeds decorator-based entry-point detection,
+so a Typer root callback is both a flow root and not dead.
 
 ## Change risk
 
@@ -779,10 +805,10 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/graph.py::build#64051219caca
+* flow=code-graph/src/codegraph/cli/graph.py::build#0bb0bf0f147d
     * entry_point=code-graph/src/codegraph/cli/graph.py::build
     * criticality=0.74
-    * nodes=225/459
+    * nodes=226/460
 * code-graph/src/codegraph/cli/graph.py::build
     * → code-graph/src/codegraph/build.py::build_or_update
         * → code-graph/src/codegraph/incremental.py::full_build
@@ -898,6 +924,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
                             * → code-graph/src/codegraph/parser.py::EdgeInfo
                         * → code-graph/src/codegraph/parser.py::CodeParser._extract_from_tree
                         * → code-graph/src/codegraph/parser.py::CodeParser._get_bases
+                        * → code-graph/src/codegraph/parser.py::CodeParser._get_class_decorators
                         * → code-graph/src/codegraph/parser.py::CodeParser._get_java_annotations
                         * → code-graph/src/codegraph/parser.py::CodeParser._get_name
                         * → code-graph/src/codegraph/parser.py::CodeParser._qualify
@@ -1330,10 +1357,10 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/graph.py::update#fa4bb815ae14
+* flow=code-graph/src/codegraph/cli/graph.py::update#9f067ab74a4c
     * entry_point=code-graph/src/codegraph/cli/graph.py::update
     * criticality=0.74
-    * nodes=225/459
+    * nodes=226/460
 * code-graph/src/codegraph/cli/graph.py::update
     * → code-graph/src/codegraph/build.py::build_or_update
         * → code-graph/src/codegraph/incremental.py::full_build
@@ -1449,6 +1476,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
                             * → code-graph/src/codegraph/parser.py::EdgeInfo
                         * → code-graph/src/codegraph/parser.py::CodeParser._extract_from_tree
                         * → code-graph/src/codegraph/parser.py::CodeParser._get_bases
+                        * → code-graph/src/codegraph/parser.py::CodeParser._get_class_decorators
                         * → code-graph/src/codegraph/parser.py::CodeParser._get_java_annotations
                         * → code-graph/src/codegraph/parser.py::CodeParser._get_name
                         * → code-graph/src/codegraph/parser.py::CodeParser._qualify
@@ -2262,10 +2290,10 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/incremental.py::_parse_single_file#dbaec82af203
+* flow=code-graph/src/codegraph/incremental.py::_parse_single_file#cfa82fe1612d
     * entry_point=code-graph/src/codegraph/incremental.py::_parse_single_file
     * criticality=0.4931
-    * nodes=123/308
+    * nodes=124/309
 * code-graph/src/codegraph/incremental.py::_parse_single_file
     * → code-graph/src/codegraph/parser.py::CodeParser
     * → code-graph/src/codegraph/parser.py::CodeParser.parse_bytes
@@ -2328,6 +2356,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
                     * → code-graph/src/codegraph/parser.py::EdgeInfo
                 * → code-graph/src/codegraph/parser.py::CodeParser._extract_from_tree
                 * → code-graph/src/codegraph/parser.py::CodeParser._get_bases
+                * → code-graph/src/codegraph/parser.py::CodeParser._get_class_decorators
                 * → code-graph/src/codegraph/parser.py::CodeParser._get_java_annotations
                 * → code-graph/src/codegraph/parser.py::CodeParser._get_name
                 * → code-graph/src/codegraph/parser.py::CodeParser._qualify
@@ -2618,10 +2647,10 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/parser.py::CodeParser.parse_file#f0e65b8a4bae
+* flow=code-graph/src/codegraph/parser.py::CodeParser.parse_file#79580e42e645
     * entry_point=code-graph/src/codegraph/parser.py::CodeParser.parse_file
-    * criticality=0.4182
-    * nodes=122/307
+    * criticality=0.4181
+    * nodes=123/308
 * code-graph/src/codegraph/parser.py::CodeParser.parse_file
     * → code-graph/src/codegraph/parser.py::CodeParser.parse_bytes
         * → code-graph/src/codegraph/parser.py::CodeParser._collect_file_scope
@@ -2683,6 +2712,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
                     * → code-graph/src/codegraph/parser.py::EdgeInfo
                 * → code-graph/src/codegraph/parser.py::CodeParser._extract_from_tree
                 * → code-graph/src/codegraph/parser.py::CodeParser._get_bases
+                * → code-graph/src/codegraph/parser.py::CodeParser._get_class_decorators
                 * → code-graph/src/codegraph/parser.py::CodeParser._get_java_annotations
                 * → code-graph/src/codegraph/parser.py::CodeParser._get_name
                 * → code-graph/src/codegraph/parser.py::CodeParser._qualify

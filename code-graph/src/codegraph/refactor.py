@@ -418,26 +418,19 @@ def find_dead_code(
         ):
             continue
 
-        # Skip decorated functions/classes that are invoked implicitly rather
-        # than via explicit CALLS edges.
+        # Any decorator can register or wrap the callable outside the call
+        # graph, so a decorated node is never reported as dead:
+        # @app.callback and @app.command (Typer/Click), @pytest.fixture,
+        # @property and @abstractmethod (attribute and polymorphic access),
+        # @Scheduled and @EventListener (Spring), @dataclass (instantiated as a
+        # type), @HostListener (Angular events), and anything else a framework
+        # reads. Static CALLS edges cannot see those hooks, so the alternative
+        # is a false positive on live code.
         decorators = node.extra.get("decorators", ())
-        if isinstance(decorators, (list, tuple)) and decorators:
-            if node.kind in ("Function", "Test"):
-                # @property -- invoked via attribute access
-                # @abstractmethod -- polymorphic dispatch, never called directly
-                # @classmethod/@staticmethod -- called via Class.method()
-                if any(
-                    d in ("property", "abstractmethod", "classmethod", "staticmethod")
-                    or d.endswith(".abstractmethod")
-                    # Angular @HostListener -- method called by framework event system
-                    or d.startswith("HostListener")
-                    for d in decorators
-                ):
-                    continue
-            if node.kind == "Class":
-                # @dataclass classes are instantiated as types, not via CALLS
-                if any("dataclass" in d for d in decorators):
-                    continue
+        if isinstance(decorators, str):
+            decorators = (decorators,)
+        if decorators:
+            continue
 
         # Skip methods that override an @abstractmethod in a base class --
         # they are called polymorphically via the base class reference.

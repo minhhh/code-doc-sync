@@ -4656,6 +4656,51 @@ class CodeParser:
                         extra={"kafka_type": ann_name},
                     ))
 
+    def _get_class_decorators(self, child, language: str) -> tuple[str, ...]:
+        """Collect decorators/annotations on a class declaration.
+
+        Python and JS/TS wrap the declaration in a decorated parent; Rust puts
+        attributes in preceding siblings; Java and Kotlin use a modifiers node.
+        """
+        decorators: list[str] = []
+
+        parent = child.parent
+        if parent is not None and parent.type in (
+            "decorated_definition", "export_statement",
+        ):
+            for sibling in parent.children:
+                if sibling.type == "decorator":
+                    decorators.append(
+                        sibling.text.decode("utf-8", errors="replace")
+                        .lstrip("@").strip()
+                    )
+
+        for sub in child.children:
+            if sub.type == "decorator":
+                decorators.append(
+                    sub.text.decode("utf-8", errors="replace").lstrip("@").strip()
+                )
+            elif sub.type in ("modifiers", "attribute_item"):
+                for mod in sub.children:
+                    if mod.type in ("annotation", "marker_annotation"):
+                        decorators.append(
+                            mod.text.decode("utf-8", errors="replace")
+                            .lstrip("@").strip()
+                        )
+
+        if language == "rust":
+            sibling = child.prev_sibling
+            while sibling is not None and sibling.type == "attribute_item":
+                text = sibling.text.decode("utf-8", errors="replace").strip()
+                for opener in ("#![", "#["):
+                    if text.startswith(opener):
+                        text = text[len(opener):].rstrip()
+                        break
+                decorators.append(text.rstrip("]").strip())
+                sibling = sibling.prev_sibling
+
+        return tuple(d for d in decorators if d)
+
     def _extract_classes(
         self,
         child,
@@ -4682,6 +4727,9 @@ class CodeParser:
         # Tree-sitter maps struct/enum/actor/extension all to class_declaration;
         # protocol uses its own protocol_declaration node type.
         extra: dict = {}
+        class_decorators = self._get_class_decorators(child, language)
+        if class_decorators:
+            extra["decorators"] = list(class_decorators)
         if language == "swift":
             if child.type == "class_declaration":
                 _swift_keywords = {"class", "struct", "enum", "actor", "extension"}
@@ -4849,6 +4897,11 @@ class CodeParser:
 
         # Java: detect Temporal method-level annotations and Kafka listeners
         method_extra: dict = {}
+        # Decorators register or wrap a callable outside the call graph, so
+        # they are persisted: dead-code analysis treats any decorated node as
+        # live, and entry-point detection reads them for framework patterns.
+        if deco_list:
+            method_extra["decorators"] = list(deco_list)
         if language == "java" and deco_list:
             temporal_method_annots = [
                 a for a in deco_list if a in _TEMPORAL_METHOD_ANNOTATIONS
