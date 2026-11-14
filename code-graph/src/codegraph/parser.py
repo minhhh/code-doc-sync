@@ -5709,6 +5709,21 @@ class CodeParser:
             if node_type in import_types:
                 self._collect_import_names(child, language, source, import_map)
 
+        # Imports inside function bodies (lazy imports) are still file scope in
+        # practice: ``def f(): from .flows import trace_flows`` makes that name
+        # resolvable for calls in the file. Collect them without overriding the
+        # top-level map, which is the more reliable signal for a shared name.
+        nested: dict[str, str] = {}
+        stack = list(root.children)
+        while stack:
+            current = stack.pop()
+            if current.type in import_types:
+                self._collect_import_names(current, language, source, nested)
+                continue
+            stack.extend(current.children)
+        for name, module in nested.items():
+            import_map.setdefault(name, module)
+
         return import_map, defined_names
 
     def _collect_js_exported_local_names(
@@ -5733,11 +5748,33 @@ class CodeParser:
         if language == "python":
             if node.type == "import_from_statement":
                 # from X.Y import A, B → {A: X.Y, B: X.Y}
+                # from .pkg import A     → {A: .pkg}      (relative)
+                # from .. import A       → {A: ..}
                 module = None
                 seen_import_keyword = False
                 for child in node.children:
                     if child.type == "dotted_name" and not seen_import_keyword:
                         module = child.text.decode("utf-8", errors="replace")
+                    elif child.type == "relative_import" and not seen_import_keyword:
+                        # Relative imports carry the leading dots in an
+                        # import_prefix child; the dotted_name child (if
+                        # any) holds only the module tail. Keep the dots so
+                        # _do_resolve_module can anchor on the caller's
+                        # package instead of the filesystem root.
+                        prefix = "".join(
+                            sub.text.decode("utf-8", errors="replace")
+                            for sub in child.children
+                            if sub.type == "import_prefix"
+                        )
+                        tail = next(
+                            (
+                                sub.text.decode("utf-8", errors="replace")
+                                for sub in child.children
+                                if sub.type == "dotted_name"
+                            ),
+                            "",
+                        )
+                        module = f"{prefix}{tail}"
                     elif child.type == "import":
                         seen_import_keyword = True
                     elif seen_import_keyword and module:
@@ -5840,6 +5877,30 @@ class CodeParser:
             return None
 
         if language == "python":
+            if module.startswith("."):
+                # ``from .common import x`` is anchored on the caller's
+                # package: one dot is the caller's directory, each extra dot
+                # walks one package up. Without this the leading dot became
+                # an absolute path and every relative import stayed
+                # unresolved.
+                level = len(module) - len(module.lstrip("."))
+                tail = module[level:]
+                start = caller_dir
+                for _ in range(level - 1):
+                    if start == start.parent:
+                        break
+                    start = start.parent
+                rel_path = tail.replace(".", "/") if tail else ""
+                if not rel_path:
+                    # ``from . import name``: the symbol is the module, handled
+                    # by _resolve_imported_symbol.
+                    return None
+                for candidate in (rel_path + ".py", rel_path + "/__init__.py"):
+                    target = start / candidate
+                    if target.is_file():
+                        return str(target.resolve())
+                return None
+
             rel_path = module.replace(".", "/")
             candidates = [rel_path + ".py", rel_path + "/__init__.py"]
             # Walk up from caller's directory to find the module file
@@ -6001,6 +6062,17 @@ class CodeParser:
         language: str,
     ) -> Optional[str]:
         """Resolve an imported symbol to its defining qualified name when possible."""
+        if module and set(module) == {"."}:
+            # ``from . import sibling`` names a submodule, so the symbol is
+            # part of the module path rather than a definition inside the
+            # package's __init__.
+            resolved = self._resolve_module_to_file(
+                f"{module}{symbol_name}", file_path, language,
+            )
+            if resolved:
+                return self._qualify(symbol_name, resolved, None)
+            return None
+
         resolved = self._resolve_module_to_file(module, file_path, language)
         if not resolved:
             return None

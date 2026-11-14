@@ -1511,3 +1511,67 @@ class TestCppScopedFunctionName:
         fns = [n for n in nodes if n.kind == "Function"]
         assert len(fns) == 1
         assert fns[0].name == "get_obj_fingerprint"
+
+
+class TestPythonRelativeImportResolution:
+    """Relative and lazy imports must resolve to a qualified call target.
+
+    Bare-name targets are invisible to entry-point detection, which compares a
+    node's qualified name against the set of call targets. A module that only
+    called a sibling through ``from .mod import x`` therefore looked uncalled
+    and became a flow root.
+    """
+
+    def setup_method(self):
+        self.parser = CodeParser()
+
+    def _package(self, tmp_path: Path) -> Path:
+        pkg = tmp_path / "pkg"
+        (pkg / "sub").mkdir(parents=True)
+        (pkg / "__init__.py").write_text("")
+        (pkg / "sub" / "__init__.py").write_text("")
+        (pkg / "common.py").write_text("def _emit():\n    pass\n")
+        (pkg / "sub" / "deep.py").write_text("def helper():\n    pass\n")
+        return pkg
+
+    def _calls(self, source: Path) -> list[str]:
+        _, edges = self.parser.parse_file(source)
+        return [e.target for e in edges if e.kind == "CALLS"]
+
+    def test_sibling_relative_import(self, tmp_path: Path):
+        pkg = self._package(tmp_path)
+        source = pkg / "cli.py"
+        source.write_text("from .common import _emit\n\n\ndef run():\n    _emit()\n")
+
+        expected = f"{(pkg / 'common.py').resolve()}::_emit"
+        assert expected in self._calls(source)
+
+    def test_nested_relative_import(self, tmp_path: Path):
+        pkg = self._package(tmp_path)
+        source = pkg / "cli.py"
+        source.write_text(
+            "from .sub.deep import helper\n\n\ndef run():\n    helper()\n"
+        )
+
+        expected = f"{(pkg / 'sub' / 'deep.py').resolve()}::helper"
+        assert expected in self._calls(source)
+
+    def test_parent_relative_import(self, tmp_path: Path):
+        pkg = self._package(tmp_path)
+        source = pkg / "sub" / "cli.py"
+        source.write_text("from ..common import _emit\n\n\ndef run():\n    _emit()\n")
+
+        expected = f"{(pkg / 'common.py').resolve()}::_emit"
+        assert expected in self._calls(source)
+
+    def test_lazy_import_inside_function(self, tmp_path: Path):
+        pkg = self._package(tmp_path)
+        source = pkg / "cli.py"
+        source.write_text(
+            "def run():\n"
+            "    from .common import _emit\n"
+            "    _emit()\n"
+        )
+
+        expected = f"{(pkg / 'common.py').resolve()}::_emit"
+        assert expected in self._calls(source)
