@@ -1,25 +1,16 @@
-"""Context-aware hints system for CLI responses.
+"""Context-aware hints for CLI responses.
 
-Tracks session state (in-memory only) and generates intelligent
-next-step suggestions after each command.  Hints are appended as
-``_hints`` to a response so the CLI can suggest follow-up commands
-without the user having to discover them.
+Generates next-step suggestions after a command by looking up the command in
+``_WORKFLOW``. Hints are appended as ``_hints`` so the CLI can point at follow-up
+commands the user doesn't have to discover.
+
+The lookup is keyed by the command's name alone: there is no history, no
+accumulated state, and no dependence on anything but the current payload.
 """
 
 from __future__ import annotations
 
-import time
-from collections import deque
 from typing import Any
-
-# ---- intent categories and their characteristic command names ----
-
-_INTENT_COMMANDS: dict[str, set[str]] = {
-    "reviewing": {"change risk", "change flows", "change impact"},
-    "debugging": {"query callers_of", "flows show", "search"},
-    "refactoring": {"refactor rename", "health dead-code", "refactor suggest"},
-    "exploring": {"arch communities", "arch overview", "flows list", "status"},
-}
 
 # ---- workflow adjacency: for each command, which commands are useful next ----
 
@@ -155,82 +146,14 @@ _WORKFLOW: dict[str, list[dict[str, str]]] = {
 # Maximum items per hints category returned to the caller.
 _MAX_PER_CATEGORY = 3
 
-# Session history caps.
-_MAX_COMMAND_HISTORY = 100
-_MAX_NODES_TRACKED = 1000
-
-
-# ---------------------------------------------------------------------------
-# SessionState
-# ---------------------------------------------------------------------------
-
-
-class SessionState:
-    """In-memory session state for a single CLI session."""
-
-    def __init__(self) -> None:
-        self.commands_run: deque[str] = deque(maxlen=_MAX_COMMAND_HISTORY)
-        self.nodes_queried: set[str] = set()
-        self.files_touched: set[str] = set()
-        self.inferred_intent: str | None = None
-        self.last_command_time: float = 0.0
-
-    def record_command(self, command: str) -> None:
-        """Record a command invocation (FIFO, capped at 100)."""
-        self.commands_run.append(command)
-        self.last_command_time = time.time()
-
-    def record_nodes(self, node_ids: list[str]) -> None:
-        """Record queried node identifiers (capped at 1000)."""
-        for nid in node_ids:
-            if len(self.nodes_queried) >= _MAX_NODES_TRACKED:
-                break
-            self.nodes_queried.add(nid)
-
-    def record_files(self, files: list[str]) -> None:
-        """Record touched file paths."""
-        self.files_touched.update(files)
-
-
-# ---------------------------------------------------------------------------
-# Intent inference
-# ---------------------------------------------------------------------------
-
-
-def infer_intent(session: SessionState) -> str:
-    """Classify the user's likely intent from the commands already run.
-
-    Returns one of: ``"reviewing"``, ``"debugging"``, ``"refactoring"``,
-    ``"exploring"`` (default).
-    """
-    if not session.commands_run:
-        return "exploring"
-
-    # Score each intent by how many of the last N commands match its commands.
-    recent = list(session.commands_run)[-10:]
-    scores: dict[str, int] = {intent: 0 for intent in _INTENT_COMMANDS}
-    for command in recent:
-        for intent, commands in _INTENT_COMMANDS.items():
-            if command in commands:
-                scores[intent] += 1
-
-    best = max(scores, key=lambda k: scores[k])
-    if scores[best] == 0:
-        return "exploring"
-    return best
-
 
 # ---------------------------------------------------------------------------
 # Hints generation
 # ---------------------------------------------------------------------------
 
 
-def generate_hints(
-    command: str,
-    result: dict[str, Any],
-    session: SessionState,
-) -> dict[str, Any]:
-    """Build context-aware hints for a command result.
+def generate_hints(command: str, result: dict[str, Any]) -> dict[str, Any]:
+    """Build follow-up hints for a command result.
 
     Returns::
 
@@ -240,28 +163,14 @@ def generate_hints(
             "warnings": [...],
         }
 
-    At most ``_MAX_PER_CATEGORY`` items per list.  Commands already run
-    in this session are suppressed from ``next_steps``.
+    At most ``_MAX_PER_CATEGORY`` items per list. Commands without a workflow
+    entry get an empty ``next_steps``; their warnings and related identifiers
+    are still filled in.
     """
-    # Update session state.
-    session.record_command(command)
-    session.inferred_intent = infer_intent(session)
-
-    next_steps = _build_next_steps(command, session)
-    warnings = _extract_warnings(result)
-    # Build related BEFORE tracking, so that the current result's files
-    # are not yet in files_touched and can appear as suggestions.
-    related = _build_related(result, session)
-
-    # Collect files/nodes from result for session tracking.
-    _track_result(result, session)
-
-    next_steps = next_steps[:_MAX_PER_CATEGORY]
-
     return {
-        "next_steps": next_steps,
-        "related": related[:_MAX_PER_CATEGORY],
-        "warnings": warnings[:_MAX_PER_CATEGORY],
+        "next_steps": _build_next_steps(command)[:_MAX_PER_CATEGORY],
+        "related": _build_related(result)[:_MAX_PER_CATEGORY],
+        "warnings": _extract_warnings(result)[:_MAX_PER_CATEGORY],
     }
 
 
@@ -270,39 +179,9 @@ def generate_hints(
 # ---------------------------------------------------------------------------
 
 
-def _track_result(result: dict[str, Any], session: SessionState) -> None:
-    """Extract node IDs and file paths from a command result and record them."""
-    # Files
-    for key in ("changed_files", "impacted_files"):
-        files = result.get(key)
-        if isinstance(files, list):
-            session.record_files([f for f in files if isinstance(f, str)])
-
-    # Nodes — look in common result shapes
-    node_ids: list[str] = []
-    for key in ("results", "changed_nodes", "impacted_nodes"):
-        items = result.get(key)
-        if isinstance(items, list):
-            for item in items:
-                if isinstance(item, dict):
-                    qn = item.get("qualified_name")
-                    if qn:
-                        node_ids.append(qn)
-    if node_ids:
-        session.record_nodes(node_ids)
-
-
-def _build_next_steps(
-    command: str, session: SessionState
-) -> list[dict[str, str]]:
-    """Return next-step suggestions, filtering already-run commands."""
-    called = set(session.commands_run)
-    candidates = _WORKFLOW.get(command, [])
-    out: list[dict[str, str]] = []
-    for c in candidates:
-        if c["command"] not in called:
-            out.append(c)
-    return out
+def _build_next_steps(command: str) -> list[dict[str, str]]:
+    """Return the workflow suggestions for *command*."""
+    return list(_WORKFLOW.get(command, ()))
 
 
 def _extract_warnings(result: dict[str, Any]) -> list[str]:
@@ -334,35 +213,18 @@ def _extract_warnings(result: dict[str, Any]) -> list[str]:
     return warnings
 
 
-def _build_related(
-    result: dict[str, Any],
-    session: SessionState,
-) -> list[str]:
-    """Suggest related node/file identifiers from the result."""
+def _build_related(result: dict[str, Any]) -> list[str]:
+    """Suggest impacted files from the result."""
     related: list[str] = []
     seen: set[str] = set()
 
-    # Suggest impacted files the user hasn't touched yet
     impacted = result.get("impacted_files")
     if isinstance(impacted, list):
         for f in impacted:
-            if isinstance(f, str) and f not in session.files_touched and f not in seen:
+            if isinstance(f, str) and f not in seen:
                 related.append(f)
                 seen.add(f)
                 if len(related) >= _MAX_PER_CATEGORY:
                     break
 
     return related
-
-
-# ---------------------------------------------------------------------------
-# Module-level session singleton
-# ---------------------------------------------------------------------------
-
-_session = SessionState()
-
-
-def get_session() -> SessionState:
-    """Return the global in-memory session state."""
-    return _session
-

@@ -361,11 +361,10 @@ def _matches(paths: set[str], text: str) -> bool:
 
 def test_hint_targets_are_real_commands() -> None:
     """Hints may only point at commands that exist."""
-    from codegraph.cli.hints import _INTENT_COMMANDS, _WORKFLOW
+    from codegraph.cli.hints import _WORKFLOW
 
     paths = _command_paths(app)
     suggested = {step["command"] for steps in _WORKFLOW.values() for step in steps}
-    suggested |= {c for commands in _INTENT_COMMANDS.values() for c in commands}
 
     unmapped = sorted(entry for entry in suggested if not _matches(paths, entry))
     assert unmapped == [], f"hint targets match no command: {unmapped}"

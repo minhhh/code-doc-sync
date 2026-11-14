@@ -12,7 +12,7 @@ from typing import Any, Iterator, Optional
 import typer
 
 from ..graph import GraphStore
-from .hints import generate_hints, get_session
+from .hints import generate_hints
 from ..incremental import find_project_root, get_db_path
 
 def _root(root: Optional[Path]) -> Path:
@@ -57,6 +57,6 @@ def _store(repo_root: Path) -> Iterator[GraphStore]:
 
 
 def _with_hints(payload: dict[str, Any], command: str) -> dict[str, Any]:
-    """Attach session-derived follow-up hints to a command payload."""
-    payload["_hints"] = generate_hints(command, payload, get_session())
+    """Attach follow-up hints to a command payload."""
+    payload["_hints"] = generate_hints(command, payload)
     return payload
