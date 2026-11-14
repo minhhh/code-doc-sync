@@ -31,8 +31,9 @@ exported `<name>#<digest>` key, where the digest is the first 12 hex characters
 of a SHA-1 over the *sorted* member list (`ctx-sync` writes that key as
 `community::<name>#<digest>`).
 - Flow identity is `<entry point>#<digest>`, the same digest length over the
-*ordered* qualified names of the traced path. Order matters here: a flow is a
-path, and one entry point can produce several.
+*ordered* qualified names of the traced path. One entry point yields one flow,
+so the path digest keeps the key stable across rebuilds rather than separating
+sibling flows.
 
 ## Post-processing order
 
@@ -326,15 +327,16 @@ there drops `tests/**`, so what follows is product code only. Reading it:
 `criticality` is the score from the formula above, `nodes` is distinct nodes over
 total tree nodes, four spaces of indentation is one level of depth, and a target
 listed twice is a re-encountered call whose subtree was not walked again. All
-56 traced flows are listed.
+54 traced flows are listed.
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/arch.py::arch_bridges#e1225fd80e10
+* flow=code-graph/src/codegraph/cli/arch.py::arch_bridges#d04333e49241
     * entry_point=code-graph/src/codegraph/cli/arch.py::arch_bridges
-    * criticality=0.73
-    * nodes=25/25
+    * criticality=0.7363
+    * nodes=27/27
 * code-graph/src/codegraph/cli/arch.py::arch_bridges
     * → code-graph/src/codegraph/analysis.py::find_bridge_nodes
+        * → code-graph/src/codegraph/graph/store.py::_sanitize_name
     * → code-graph/src/codegraph/cli/common.py::_emit
         * → code-graph/src/codegraph/cli/common.py::_color_enabled
         * → code-graph/src/codegraph/cli/common.py::_json_text
@@ -343,6 +345,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
             * → code-graph/src/codegraph/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/incremental.py::find_svn_root
     * → code-graph/src/codegraph/cli/common.py::_store
+        * → code-graph/src/codegraph/graph/store.py::GraphStore
         * → code-graph/src/codegraph/incremental.py::get_db_path
             * → code-graph/src/codegraph/incremental.py::get_data_dir
                 * → code-graph/src/codegraph/incremental.py::_write_data_dir_gitignore
@@ -361,10 +364,10 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/arch.py::arch_communities#aec8b86d3084
+* flow=code-graph/src/codegraph/cli/arch.py::arch_communities#8146e2869751
     * entry_point=code-graph/src/codegraph/cli/arch.py::arch_communities
-    * criticality=0.73
-    * nodes=25/26
+    * criticality=0.7363
+    * nodes=27/28
 * code-graph/src/codegraph/cli/arch.py::arch_communities
     * → code-graph/src/codegraph/cli/arch.py::_require_graph
         * → code-graph/src/codegraph/incremental.py::get_db_path
@@ -378,6 +381,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
             * → code-graph/src/codegraph/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/incremental.py::find_svn_root
     * → code-graph/src/codegraph/cli/common.py::_store
+        * → code-graph/src/codegraph/graph/store.py::GraphStore
         * → code-graph/src/codegraph/incremental.py::get_db_path
     * → code-graph/src/codegraph/cli/common.py::_with_hints
         * → code-graph/src/codegraph/cli/hints.py::generate_hints
@@ -391,13 +395,14 @@ listed twice is a re-encountered call whose subtree was not walked again. All
             * → code-graph/src/codegraph/cli/hints.py::infer_intent
         * → code-graph/src/codegraph/cli/hints.py::get_session
     * → code-graph/src/codegraph/communities.py::get_communities
+        * → code-graph/src/codegraph/graph/store.py::_sanitize_name
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/arch.py::arch_community#5e2bcc287129
+* flow=code-graph/src/codegraph/cli/arch.py::arch_community#022fda2c7179
     * entry_point=code-graph/src/codegraph/cli/arch.py::arch_community
-    * criticality=0.7285
-    * nodes=26/27
+    * criticality=0.7331
+    * nodes=29/31
 * code-graph/src/codegraph/cli/arch.py::arch_community
     * → code-graph/src/codegraph/cli/arch.py::_require_graph
         * → code-graph/src/codegraph/incremental.py::get_db_path
@@ -411,6 +416,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
             * → code-graph/src/codegraph/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/incremental.py::find_svn_root
     * → code-graph/src/codegraph/cli/common.py::_store
+        * → code-graph/src/codegraph/graph/store.py::GraphStore
         * → code-graph/src/codegraph/incremental.py::get_db_path
     * → code-graph/src/codegraph/cli/common.py::_with_hints
         * → code-graph/src/codegraph/cli/hints.py::generate_hints
@@ -425,15 +431,19 @@ listed twice is a re-encountered call whose subtree was not walked again. All
         * → code-graph/src/codegraph/cli/hints.py::get_session
     * → code-graph/src/codegraph/communities.py::find_community
         * → code-graph/src/codegraph/communities.py::get_communities
+            * → code-graph/src/codegraph/graph/store.py::_sanitize_name
+        * → code-graph/src/codegraph/graph/store.py::node_to_dict
+            * → code-graph/src/codegraph/graph/store.py::_sanitize_name
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/arch.py::arch_hubs#eac975d591ae
+* flow=code-graph/src/codegraph/cli/arch.py::arch_hubs#21708d713c26
     * entry_point=code-graph/src/codegraph/cli/arch.py::arch_hubs
-    * criticality=0.73
-    * nodes=25/25
+    * criticality=0.7363
+    * nodes=27/27
 * code-graph/src/codegraph/cli/arch.py::arch_hubs
     * → code-graph/src/codegraph/analysis.py::find_hub_nodes
+        * → code-graph/src/codegraph/graph/store.py::_sanitize_name
     * → code-graph/src/codegraph/cli/common.py::_emit
         * → code-graph/src/codegraph/cli/common.py::_color_enabled
         * → code-graph/src/codegraph/cli/common.py::_json_text
@@ -442,6 +452,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
             * → code-graph/src/codegraph/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/incremental.py::find_svn_root
     * → code-graph/src/codegraph/cli/common.py::_store
+        * → code-graph/src/codegraph/graph/store.py::GraphStore
         * → code-graph/src/codegraph/incremental.py::get_db_path
             * → code-graph/src/codegraph/incremental.py::get_data_dir
                 * → code-graph/src/codegraph/incremental.py::_write_data_dir_gitignore
@@ -460,10 +471,10 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/arch.py::arch_overview#6cb7ccd49e56
+* flow=code-graph/src/codegraph/cli/arch.py::arch_overview#17d0ddfd7c14
     * entry_point=code-graph/src/codegraph/cli/arch.py::arch_overview
-    * criticality=0.727
-    * nodes=27/28
+    * criticality=0.7331
+    * nodes=29/31
 * code-graph/src/codegraph/cli/arch.py::arch_overview
     * → code-graph/src/codegraph/cli/arch.py::_require_graph
         * → code-graph/src/codegraph/incremental.py::get_db_path
@@ -477,6 +488,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
             * → code-graph/src/codegraph/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/incremental.py::find_svn_root
     * → code-graph/src/codegraph/cli/common.py::_store
+        * → code-graph/src/codegraph/graph/store.py::GraphStore
         * → code-graph/src/codegraph/incremental.py::get_db_path
     * → code-graph/src/codegraph/cli/common.py::_with_hints
         * → code-graph/src/codegraph/cli/hints.py::generate_hints
@@ -492,15 +504,18 @@ listed twice is a re-encountered call whose subtree was not walked again. All
     * → code-graph/src/codegraph/communities.py::get_architecture_overview
         * → code-graph/src/codegraph/communities.py::_is_test_community
         * → code-graph/src/codegraph/communities.py::get_communities
+            * → code-graph/src/codegraph/graph/store.py::_sanitize_name
+        * → code-graph/src/codegraph/graph/store.py::_sanitize_name
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/arch.py::arch_surprises#6cd852a497a6
+* flow=code-graph/src/codegraph/cli/arch.py::arch_surprises#cf98def3ac04
     * entry_point=code-graph/src/codegraph/cli/arch.py::arch_surprises
-    * criticality=0.74
-    * nodes=25/25
+    * criticality=0.7456
+    * nodes=27/27
 * code-graph/src/codegraph/cli/arch.py::arch_surprises
     * → code-graph/src/codegraph/analysis.py::find_surprising_connections
+        * → code-graph/src/codegraph/graph/store.py::_sanitize_name
     * → code-graph/src/codegraph/cli/common.py::_emit
         * → code-graph/src/codegraph/cli/common.py::_color_enabled
         * → code-graph/src/codegraph/cli/common.py::_json_text
@@ -509,6 +524,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
             * → code-graph/src/codegraph/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/incremental.py::find_svn_root
     * → code-graph/src/codegraph/cli/common.py::_store
+        * → code-graph/src/codegraph/graph/store.py::GraphStore
         * → code-graph/src/codegraph/incremental.py::get_db_path
             * → code-graph/src/codegraph/incremental.py::get_data_dir
                 * → code-graph/src/codegraph/incremental.py::_write_data_dir_gitignore
@@ -527,10 +543,10 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/change.py::change_flows#ca4585638b8b
+* flow=code-graph/src/codegraph/cli/change.py::change_flows#44531094220f
     * entry_point=code-graph/src/codegraph/cli/change.py::change_flows
-    * criticality=0.7233
-    * nodes=30/32
+    * criticality=0.7291
+    * nodes=32/34
 * code-graph/src/codegraph/cli/change.py::change_flows
     * → code-graph/src/codegraph/cli/common.py::_emit
         * → code-graph/src/codegraph/cli/common.py::_color_enabled
@@ -540,6 +556,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
             * → code-graph/src/codegraph/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/incremental.py::find_svn_root
     * → code-graph/src/codegraph/cli/common.py::_store
+        * → code-graph/src/codegraph/graph/store.py::GraphStore
         * → code-graph/src/codegraph/incremental.py::get_db_path
             * → code-graph/src/codegraph/incremental.py::get_data_dir
                 * → code-graph/src/codegraph/incremental.py::_write_data_dir_gitignore
@@ -557,6 +574,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
     * → code-graph/src/codegraph/flows.py::affected_flows
         * → code-graph/src/codegraph/flows.py::get_affected_flows
             * → code-graph/src/codegraph/flows.py::get_flow_by_id
+                * → code-graph/src/codegraph/graph/store.py::_sanitize_name
         * → code-graph/src/codegraph/incremental.py::get_changed_files
             * → code-graph/src/codegraph/incremental.py::_get_svn_changed_files
             * → code-graph/src/codegraph/incremental.py::detect_vcs
@@ -566,13 +584,17 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/change.py::change_impact#99c13b55048b
+* flow=code-graph/src/codegraph/cli/change.py::change_impact#7ed4b25b3b49
     * entry_point=code-graph/src/codegraph/cli/change.py::change_impact
-    * criticality=0.7119
-    * nodes=21/26
+    * criticality=0.72
+    * nodes=25/31
 * code-graph/src/codegraph/cli/change.py::change_impact
     * → code-graph/src/codegraph/analysis.py::get_impact_radius
         * → code-graph/src/codegraph/analysis.py::get_impact_radius
+        * → code-graph/src/codegraph/graph/store.py::edge_to_dict
+            * → code-graph/src/codegraph/graph/store.py::_sanitize_name
+        * → code-graph/src/codegraph/graph/store.py::node_to_dict
+            * → code-graph/src/codegraph/graph/store.py::_sanitize_name
         * → code-graph/src/codegraph/incremental.py::get_changed_files
             * → code-graph/src/codegraph/incremental.py::_get_svn_changed_files
             * → code-graph/src/codegraph/incremental.py::detect_vcs
@@ -580,6 +602,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
             * → code-graph/src/codegraph/incremental.py::_get_svn_changed_files
             * → code-graph/src/codegraph/incremental.py::detect_vcs
         * → code-graph/src/codegraph/lib/store.py::open_store
+            * → code-graph/src/codegraph/graph/store.py::GraphStore
             * → code-graph/src/codegraph/incremental.py::get_db_path
                 * → code-graph/src/codegraph/incremental.py::get_data_dir
                     * → code-graph/src/codegraph/incremental.py::_write_data_dir_gitignore
@@ -599,10 +622,10 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/change.py::change_risk#bce1e32b2df6
+* flow=code-graph/src/codegraph/cli/change.py::change_risk#114b82dfd63b
     * entry_point=code-graph/src/codegraph/cli/change.py::change_risk
-    * criticality=0.717
-    * nodes=37/41
+    * criticality=0.7213
+    * nodes=40/46
 * code-graph/src/codegraph/cli/change.py::change_risk
     * → code-graph/src/codegraph/changes.py::detect_changes
         * → code-graph/src/codegraph/changes.py::analyze_changes
@@ -611,6 +634,10 @@ listed twice is a re-encountered call whose subtree was not walked again. All
             * → code-graph/src/codegraph/changes.py::parse_diff_ranges
             * → code-graph/src/codegraph/flows.py::get_affected_flows
                 * → code-graph/src/codegraph/flows.py::get_flow_by_id
+                    * → code-graph/src/codegraph/graph/store.py::_sanitize_name
+            * → code-graph/src/codegraph/graph/store.py::_sanitize_name
+            * → code-graph/src/codegraph/graph/store.py::node_to_dict
+                * → code-graph/src/codegraph/graph/store.py::_sanitize_name
         * → code-graph/src/codegraph/changes.py::parse_diff_ranges
             * → code-graph/src/codegraph/changes.py::parse_git_diff_ranges
                 * → code-graph/src/codegraph/changes.py::_parse_unified_diff
@@ -630,6 +657,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
             * → code-graph/src/codegraph/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/incremental.py::find_svn_root
     * → code-graph/src/codegraph/cli/common.py::_store
+        * → code-graph/src/codegraph/graph/store.py::GraphStore
         * → code-graph/src/codegraph/incremental.py::get_db_path
             * → code-graph/src/codegraph/incremental.py::get_data_dir
                 * → code-graph/src/codegraph/incremental.py::_write_data_dir_gitignore
@@ -647,10 +675,10 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/flows.py::flows_list#0e008781ba26
+* flow=code-graph/src/codegraph/cli/flows.py::flows_list#4b42427e0571
     * entry_point=code-graph/src/codegraph/cli/flows.py::flows_list
-    * criticality=0.615
-    * nodes=12/12
+    * criticality=0.7079
+    * nodes=14/14
 * code-graph/src/codegraph/cli/flows.py::flows_list
     * → code-graph/src/codegraph/cli/common.py::_emit
         * → code-graph/src/codegraph/cli/common.py::_color_enabled
@@ -660,16 +688,18 @@ listed twice is a re-encountered call whose subtree was not walked again. All
             * → code-graph/src/codegraph/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/incremental.py::find_svn_root
     * → code-graph/src/codegraph/flows.py::get_flows
+        * → code-graph/src/codegraph/graph/store.py::_sanitize_name
+    * → code-graph/src/codegraph/graph/store.py::GraphStore
     * → code-graph/src/codegraph/incremental.py::get_db_path
         * → code-graph/src/codegraph/incremental.py::get_data_dir
             * → code-graph/src/codegraph/incremental.py::_write_data_dir_gitignore
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/flows.py::flows_show#bf0813d6335a
+* flow=code-graph/src/codegraph/cli/flows.py::flows_show#c1a71f2f12ee
     * entry_point=code-graph/src/codegraph/cli/flows.py::flows_show
-    * criticality=0.615
-    * nodes=12/12
+    * criticality=0.7079
+    * nodes=14/14
 * code-graph/src/codegraph/cli/flows.py::flows_show
     * → code-graph/src/codegraph/cli/common.py::_emit
         * → code-graph/src/codegraph/cli/common.py::_color_enabled
@@ -679,16 +709,18 @@ listed twice is a re-encountered call whose subtree was not walked again. All
             * → code-graph/src/codegraph/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/incremental.py::find_svn_root
     * → code-graph/src/codegraph/flows.py::get_flow_by_id
+        * → code-graph/src/codegraph/graph/store.py::_sanitize_name
+    * → code-graph/src/codegraph/graph/store.py::GraphStore
     * → code-graph/src/codegraph/incremental.py::get_db_path
         * → code-graph/src/codegraph/incremental.py::get_data_dir
             * → code-graph/src/codegraph/incremental.py::_write_data_dir_gitignore
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/graph.py::build#6f16bcefa764
+* flow=code-graph/src/codegraph/cli/graph.py::build#9d3e944c23f6
     * entry_point=code-graph/src/codegraph/cli/graph.py::build
-    * criticality=0.7334
-    * nodes=73/93
+    * criticality=0.7367
+    * nodes=75/95
 * code-graph/src/codegraph/cli/graph.py::build
     * → code-graph/src/codegraph/build.py::build_or_update
         * → code-graph/src/codegraph/incremental.py::full_build
@@ -763,6 +795,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
                 * → code-graph/src/codegraph/flows.py::incremental_trace_flows
                     * → code-graph/src/codegraph/flows.py::_trace_single_flow
                         * → code-graph/src/codegraph/flows.py::compute_criticality
+                        * → code-graph/src/codegraph/graph/store.py::_sanitize_name
                     * → code-graph/src/codegraph/flows.py::detect_entry_points
                         * → code-graph/src/codegraph/flows.py::_has_framework_decorator
                         * → code-graph/src/codegraph/flows.py::_is_test_file
@@ -779,16 +812,17 @@ listed twice is a re-encountered call whose subtree was not walked again. All
             * → code-graph/src/codegraph/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/incremental.py::find_svn_root
     * → code-graph/src/codegraph/cli/common.py::_store
+        * → code-graph/src/codegraph/graph/store.py::GraphStore
         * → code-graph/src/codegraph/incremental.py::get_db_path
             * → code-graph/src/codegraph/incremental.py::get_data_dir
                 * → code-graph/src/codegraph/incremental.py::_write_data_dir_gitignore
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/graph.py::export_graph#5671e78be2e2
+* flow=code-graph/src/codegraph/cli/graph.py::export_graph#a8fd5b5940fe
     * entry_point=code-graph/src/codegraph/cli/graph.py::export_graph
-    * criticality=0.7
-    * nodes=27/31
+    * criticality=0.7081
+    * nodes=31/39
 * code-graph/src/codegraph/cli/graph.py::export_graph
     * → code-graph/src/codegraph/cli/common.py::_emit
         * → code-graph/src/codegraph/cli/common.py::_color_enabled
@@ -801,10 +835,16 @@ listed twice is a re-encountered call whose subtree was not walked again. All
     * → code-graph/src/codegraph/cli/graph.py::_export_payload
         * → code-graph/src/codegraph/export.py::build_payload
             * → code-graph/src/codegraph/export.py::_call_graph_payload
+                * → code-graph/src/codegraph/graph/store.py::edge_to_dict
+                    * → code-graph/src/codegraph/graph/store.py::_sanitize_name
+                * → code-graph/src/codegraph/graph/store.py::node_to_dict
+                    * → code-graph/src/codegraph/graph/store.py::_sanitize_name
             * → code-graph/src/codegraph/export.py::_community_payload
                 * → code-graph/src/codegraph/communities.py::get_architecture_overview
                     * → code-graph/src/codegraph/communities.py::_is_test_community
                     * → code-graph/src/codegraph/communities.py::get_communities
+                        * → code-graph/src/codegraph/graph/store.py::_sanitize_name
+                    * → code-graph/src/codegraph/graph/store.py::_sanitize_name
                 * → code-graph/src/codegraph/export.py::community_key
             * → code-graph/src/codegraph/export.py::_flows_payload
                 * → code-graph/src/codegraph/export.py::_flow_tree
@@ -812,7 +852,9 @@ listed twice is a re-encountered call whose subtree was not walked again. All
                     * → code-graph/src/codegraph/export.py::_tree_size
                 * → code-graph/src/codegraph/export.py::flow_key
                 * → code-graph/src/codegraph/flows.py::get_flows
+                    * → code-graph/src/codegraph/graph/store.py::_sanitize_name
             * → code-graph/src/codegraph/export.py::canonical_graph_type
+        * → code-graph/src/codegraph/graph/store.py::GraphStore
         * → code-graph/src/codegraph/incremental.py::get_db_path
             * → code-graph/src/codegraph/incremental.py::get_data_dir
                 * → code-graph/src/codegraph/incremental.py::_write_data_dir_gitignore
@@ -823,10 +865,10 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/graph.py::status#5549a8d6967e
+* flow=code-graph/src/codegraph/cli/graph.py::status#9e10833eddc4
     * entry_point=code-graph/src/codegraph/cli/graph.py::status
-    * criticality=0.7167
-    * nodes=15/16
+    * criticality=0.7156
+    * nodes=16/17
 * code-graph/src/codegraph/cli/graph.py::status
     * → code-graph/src/codegraph/cli/common.py::_emit
         * → code-graph/src/codegraph/cli/common.py::_color_enabled
@@ -837,6 +879,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
                 * → code-graph/src/codegraph/incremental.py::find_svn_root
     * → code-graph/src/codegraph/queries.py::list_graph_stats
         * → code-graph/src/codegraph/lib/store.py::open_store
+            * → code-graph/src/codegraph/graph/store.py::GraphStore
             * → code-graph/src/codegraph/incremental.py::get_db_path
                 * → code-graph/src/codegraph/incremental.py::get_data_dir
                     * → code-graph/src/codegraph/incremental.py::_write_data_dir_gitignore
@@ -846,10 +889,10 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/graph.py::update#6ae1a24e4b55
+* flow=code-graph/src/codegraph/cli/graph.py::update#cd7ba4c98077
     * entry_point=code-graph/src/codegraph/cli/graph.py::update
-    * criticality=0.7334
-    * nodes=73/93
+    * criticality=0.7367
+    * nodes=75/95
 * code-graph/src/codegraph/cli/graph.py::update
     * → code-graph/src/codegraph/build.py::build_or_update
         * → code-graph/src/codegraph/incremental.py::full_build
@@ -924,6 +967,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
                 * → code-graph/src/codegraph/flows.py::incremental_trace_flows
                     * → code-graph/src/codegraph/flows.py::_trace_single_flow
                         * → code-graph/src/codegraph/flows.py::compute_criticality
+                        * → code-graph/src/codegraph/graph/store.py::_sanitize_name
                     * → code-graph/src/codegraph/flows.py::detect_entry_points
                         * → code-graph/src/codegraph/flows.py::_has_framework_decorator
                         * → code-graph/src/codegraph/flows.py::_is_test_file
@@ -940,16 +984,17 @@ listed twice is a re-encountered call whose subtree was not walked again. All
             * → code-graph/src/codegraph/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/incremental.py::find_svn_root
     * → code-graph/src/codegraph/cli/common.py::_store
+        * → code-graph/src/codegraph/graph/store.py::GraphStore
         * → code-graph/src/codegraph/incremental.py::get_db_path
             * → code-graph/src/codegraph/incremental.py::get_data_dir
                 * → code-graph/src/codegraph/incremental.py::_write_data_dir_gitignore
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/health.py::dead_code#3332912bf8cd
+* flow=code-graph/src/codegraph/cli/health.py::dead_code#3aca88ead081
     * entry_point=code-graph/src/codegraph/cli/health.py::dead_code
-    * criticality=0.7213
-    * nodes=32/33
+    * criticality=0.7268
+    * nodes=34/35
 * code-graph/src/codegraph/cli/health.py::dead_code
     * → code-graph/src/codegraph/cli/common.py::_emit
         * → code-graph/src/codegraph/cli/common.py::_color_enabled
@@ -959,6 +1004,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
             * → code-graph/src/codegraph/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/incremental.py::find_svn_root
     * → code-graph/src/codegraph/cli/common.py::_store
+        * → code-graph/src/codegraph/graph/store.py::GraphStore
         * → code-graph/src/codegraph/incremental.py::get_db_path
             * → code-graph/src/codegraph/incremental.py::get_data_dir
                 * → code-graph/src/codegraph/incremental.py::_write_data_dir_gitignore
@@ -976,6 +1022,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
     * → code-graph/src/codegraph/cli/suggestions.py::for_command
     * → code-graph/src/codegraph/refactor.py::find_dead_code
         * → code-graph/src/codegraph/flows.py::_has_framework_decorator
+        * → code-graph/src/codegraph/graph/store.py::_sanitize_name
         * → code-graph/src/codegraph/refactor.py::_collect_type_referenced_names
         * → code-graph/src/codegraph/refactor.py::_is_entry_point
             * → code-graph/src/codegraph/flows.py::_has_framework_decorator
@@ -986,12 +1033,13 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/health.py::knowledge_gaps#28dceb7cf5d5
+* flow=code-graph/src/codegraph/cli/health.py::knowledge_gaps#55efb6ebcbb5
     * entry_point=code-graph/src/codegraph/cli/health.py::knowledge_gaps
-    * criticality=0.73
-    * nodes=25/25
+    * criticality=0.7363
+    * nodes=27/27
 * code-graph/src/codegraph/cli/health.py::knowledge_gaps
     * → code-graph/src/codegraph/analysis.py::find_knowledge_gaps
+        * → code-graph/src/codegraph/graph/store.py::_sanitize_name
     * → code-graph/src/codegraph/cli/common.py::_emit
         * → code-graph/src/codegraph/cli/common.py::_color_enabled
         * → code-graph/src/codegraph/cli/common.py::_json_text
@@ -1000,6 +1048,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
             * → code-graph/src/codegraph/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/incremental.py::find_svn_root
     * → code-graph/src/codegraph/cli/common.py::_store
+        * → code-graph/src/codegraph/graph/store.py::GraphStore
         * → code-graph/src/codegraph/incremental.py::get_db_path
             * → code-graph/src/codegraph/incremental.py::get_data_dir
                 * → code-graph/src/codegraph/incremental.py::_write_data_dir_gitignore
@@ -1018,13 +1067,16 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/health.py::large_functions#36652ddfe8a6
+* flow=code-graph/src/codegraph/cli/health.py::large_functions#7c5d8f1c1738
     * entry_point=code-graph/src/codegraph/cli/health.py::large_functions
-    * criticality=0.7167
-    * nodes=15/16
+    * criticality=0.7278
+    * nodes=18/19
 * code-graph/src/codegraph/cli/health.py::large_functions
     * → code-graph/src/codegraph/analysis.py::find_large_functions
+        * → code-graph/src/codegraph/graph/store.py::node_to_dict
+            * → code-graph/src/codegraph/graph/store.py::_sanitize_name
         * → code-graph/src/codegraph/lib/store.py::open_store
+            * → code-graph/src/codegraph/graph/store.py::GraphStore
             * → code-graph/src/codegraph/incremental.py::get_db_path
                 * → code-graph/src/codegraph/incremental.py::get_data_dir
                     * → code-graph/src/codegraph/incremental.py::_write_data_dir_gitignore
@@ -1041,16 +1093,20 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/health.py::suggested_questions#31fc583b86d3
+* flow=code-graph/src/codegraph/cli/health.py::suggested_questions#c8b2e4df59b8
     * entry_point=code-graph/src/codegraph/cli/health.py::suggested_questions
-    * criticality=0.7331
-    * nodes=29/29
+    * criticality=0.7384
+    * nodes=31/34
 * code-graph/src/codegraph/cli/health.py::suggested_questions
     * → code-graph/src/codegraph/analysis.py::generate_suggested_questions
         * → code-graph/src/codegraph/analysis.py::find_bridge_nodes
+            * → code-graph/src/codegraph/graph/store.py::_sanitize_name
         * → code-graph/src/codegraph/analysis.py::find_hub_nodes
+            * → code-graph/src/codegraph/graph/store.py::_sanitize_name
         * → code-graph/src/codegraph/analysis.py::find_knowledge_gaps
+            * → code-graph/src/codegraph/graph/store.py::_sanitize_name
         * → code-graph/src/codegraph/analysis.py::find_surprising_connections
+            * → code-graph/src/codegraph/graph/store.py::_sanitize_name
     * → code-graph/src/codegraph/cli/common.py::_emit
         * → code-graph/src/codegraph/cli/common.py::_color_enabled
         * → code-graph/src/codegraph/cli/common.py::_json_text
@@ -1059,6 +1115,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
             * → code-graph/src/codegraph/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/incremental.py::find_svn_root
     * → code-graph/src/codegraph/cli/common.py::_store
+        * → code-graph/src/codegraph/graph/store.py::GraphStore
         * → code-graph/src/codegraph/incremental.py::get_db_path
             * → code-graph/src/codegraph/incremental.py::get_data_dir
                 * → code-graph/src/codegraph/incremental.py::_write_data_dir_gitignore
@@ -1077,10 +1134,10 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/lookup.py::query#a491d58bc6ae
+* flow=code-graph/src/codegraph/cli/lookup.py::query#a8f42f6bb66a
     * entry_point=code-graph/src/codegraph/cli/lookup.py::query
-    * criticality=0.7441
-    * nodes=17/19
+    * criticality=0.7476
+    * nodes=21/24
 * code-graph/src/codegraph/cli/lookup.py::query
     * → code-graph/src/codegraph/cli/common.py::_emit
         * → code-graph/src/codegraph/cli/common.py::_color_enabled
@@ -1090,7 +1147,12 @@ listed twice is a re-encountered call whose subtree was not walked again. All
             * → code-graph/src/codegraph/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/incremental.py::find_svn_root
     * → code-graph/src/codegraph/queries.py::query_graph
+        * → code-graph/src/codegraph/graph/store.py::edge_to_dict
+            * → code-graph/src/codegraph/graph/store.py::_sanitize_name
+        * → code-graph/src/codegraph/graph/store.py::node_to_dict
+            * → code-graph/src/codegraph/graph/store.py::_sanitize_name
         * → code-graph/src/codegraph/lib/store.py::open_store
+            * → code-graph/src/codegraph/graph/store.py::GraphStore
             * → code-graph/src/codegraph/incremental.py::get_db_path
                 * → code-graph/src/codegraph/incremental.py::get_data_dir
                     * → code-graph/src/codegraph/incremental.py::_write_data_dir_gitignore
@@ -1103,10 +1165,10 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/lookup.py::search#b856af76772d
+* flow=code-graph/src/codegraph/cli/lookup.py::search#c30fe1d9bbe5
     * entry_point=code-graph/src/codegraph/cli/lookup.py::search
-    * criticality=0.7565
-    * nodes=31/32
+    * criticality=0.7606
+    * nodes=33/34
 * code-graph/src/codegraph/cli/lookup.py::search
     * → code-graph/src/codegraph/cli/common.py::_emit
         * → code-graph/src/codegraph/cli/common.py::_color_enabled
@@ -1128,6 +1190,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
         * → code-graph/src/codegraph/cli/hints.py::get_session
     * → code-graph/src/codegraph/search.py::semantic_search_nodes
         * → code-graph/src/codegraph/lib/store.py::open_store
+            * → code-graph/src/codegraph/graph/store.py::GraphStore
             * → code-graph/src/codegraph/incremental.py::get_db_path
                 * → code-graph/src/codegraph/incremental.py::get_data_dir
                     * → code-graph/src/codegraph/incremental.py::_write_data_dir_gitignore
@@ -1135,6 +1198,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
                 * → code-graph/src/codegraph/incremental.py::find_project_root
                 * → code-graph/src/codegraph/lib/store.py::validate_repo_root
         * → code-graph/src/codegraph/search.py::search_nodes
+            * → code-graph/src/codegraph/graph/store.py::_sanitize_name
             * → code-graph/src/codegraph/search.py::_fts_search
             * → code-graph/src/codegraph/search.py::_keyword_search
             * → code-graph/src/codegraph/search.py::detect_query_kind_boost
@@ -1159,10 +1223,10 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/refactor.py::refactor_rename#c0fc1f7dffac
+* flow=code-graph/src/codegraph/cli/refactor.py::refactor_rename#b20971ac6f61
     * entry_point=code-graph/src/codegraph/cli/refactor.py::refactor_rename
-    * criticality=0.73
-    * nodes=25/25
+    * criticality=0.7363
+    * nodes=27/27
 * code-graph/src/codegraph/cli/refactor.py::refactor_rename
     * → code-graph/src/codegraph/cli/common.py::_emit
         * → code-graph/src/codegraph/cli/common.py::_color_enabled
@@ -1172,6 +1236,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
             * → code-graph/src/codegraph/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/incremental.py::find_svn_root
     * → code-graph/src/codegraph/cli/common.py::_store
+        * → code-graph/src/codegraph/graph/store.py::GraphStore
         * → code-graph/src/codegraph/incremental.py::get_db_path
             * → code-graph/src/codegraph/incremental.py::get_data_dir
                 * → code-graph/src/codegraph/incremental.py::_write_data_dir_gitignore
@@ -1187,14 +1252,15 @@ listed twice is a re-encountered call whose subtree was not walked again. All
             * → code-graph/src/codegraph/cli/hints.py::infer_intent
         * → code-graph/src/codegraph/cli/hints.py::get_session
     * → code-graph/src/codegraph/refactor.py::rename_preview
+        * → code-graph/src/codegraph/graph/store.py::_sanitize_name
         * → code-graph/src/codegraph/refactor.py::_cleanup_expired
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/refactor.py::refactor_suggest#27c1c2c98885
+* flow=code-graph/src/codegraph/cli/refactor.py::refactor_suggest#e76d0937ccb5
     * entry_point=code-graph/src/codegraph/cli/refactor.py::refactor_suggest
-    * criticality=0.7213
-    * nodes=32/33
+    * criticality=0.7268
+    * nodes=34/36
 * code-graph/src/codegraph/cli/refactor.py::refactor_suggest
     * → code-graph/src/codegraph/cli/common.py::_emit
         * → code-graph/src/codegraph/cli/common.py::_color_enabled
@@ -1204,6 +1270,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
             * → code-graph/src/codegraph/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/incremental.py::find_svn_root
     * → code-graph/src/codegraph/cli/common.py::_store
+        * → code-graph/src/codegraph/graph/store.py::GraphStore
         * → code-graph/src/codegraph/incremental.py::get_db_path
             * → code-graph/src/codegraph/incremental.py::get_data_dir
                 * → code-graph/src/codegraph/incremental.py::_write_data_dir_gitignore
@@ -1219,8 +1286,10 @@ listed twice is a re-encountered call whose subtree was not walked again. All
             * → code-graph/src/codegraph/cli/hints.py::infer_intent
         * → code-graph/src/codegraph/cli/hints.py::get_session
     * → code-graph/src/codegraph/refactor.py::suggest_refactorings
+        * → code-graph/src/codegraph/graph/store.py::_sanitize_name
         * → code-graph/src/codegraph/refactor.py::find_dead_code
             * → code-graph/src/codegraph/flows.py::_has_framework_decorator
+            * → code-graph/src/codegraph/graph/store.py::_sanitize_name
             * → code-graph/src/codegraph/refactor.py::_collect_type_referenced_names
             * → code-graph/src/codegraph/refactor.py::_is_entry_point
                 * → code-graph/src/codegraph/flows.py::_has_framework_decorator
@@ -1480,24 +1549,6 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/graph/store.py::edge_to_dict#b703e59b705a
-    * entry_point=code-graph/src/codegraph/graph/store.py::edge_to_dict
-    * criticality=0.365
-    * nodes=2/2
-* code-graph/src/codegraph/graph/store.py::edge_to_dict
-    * → code-graph/src/codegraph/graph/store.py::_sanitize_name
-<!-- CTX-SYNC:FLOW-END -->
-
-<!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/graph/store.py::node_to_dict#a3b9a548cd9b
-    * entry_point=code-graph/src/codegraph/graph/store.py::node_to_dict
-    * criticality=0.365
-    * nodes=2/2
-* code-graph/src/codegraph/graph/store.py::node_to_dict
-    * → code-graph/src/codegraph/graph/store.py::_sanitize_name
-<!-- CTX-SYNC:FLOW-END -->
-
-<!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/incremental.py::_parse_single_file#15ca52cb7e11
     * entry_point=code-graph/src/codegraph/incremental.py::_parse_single_file
     * criticality=0.435
@@ -1551,7 +1602,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 * flow=code-graph/src/codegraph/parser.py::CodeParser.parse_file#d50c12bcdf48
     * entry_point=code-graph/src/codegraph/parser.py::CodeParser.parse_file
     * criticality=0.4185
-    * nodes=118/302
+    * nodes=118/303
 * code-graph/src/codegraph/parser.py::CodeParser.parse_file
     * → code-graph/src/codegraph/parser.py::CodeParser.parse_bytes
         * → code-graph/src/codegraph/parser.py::CodeParser._collect_file_scope
@@ -1586,6 +1637,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
                             * → code-graph/src/codegraph/parser.py::CodeParser._get_parser
                             * → code-graph/src/codegraph/parser.py::CodeParser._qualify
                             * → code-graph/src/codegraph/parser.py::CodeParser._resolve_exported_symbol
+                            * → code-graph/src/codegraph/parser.py::CodeParser._resolve_imported_symbol
                             * → code-graph/src/codegraph/parser.py::CodeParser._resolve_module_to_file
                             * → code-graph/src/codegraph/parser.py::CodeParser.detect_language
                         * → code-graph/src/codegraph/parser.py::CodeParser._resolve_module_to_file
