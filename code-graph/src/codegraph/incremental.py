@@ -19,7 +19,7 @@ from pathlib import Path, PurePosixPath
 from typing import Optional
 
 from .graph import GraphStore
-from .parser import CodeParser
+from .parser import CodeParser, EdgeInfo, NodeInfo
 
 _MAX_PARSE_WORKERS = int(os.environ.get("CODE_GRAPH_PARSE_WORKERS", str(min(os.cpu_count() or 4, 8))))
 
@@ -862,6 +862,55 @@ def _parse_single_file(
         return (rel_path, [], [], str(e), "")
 
 
+def _store_batch_size() -> int:
+    """Files per write transaction, from ``CODE_GRAPH_STORE_BATCH_SIZE``.
+
+    ``1`` (the default) keeps the historical per-file transaction. Larger
+    values buffer parsed files and hand them to ``store_file_batch``, trading
+    memory for fewer commits on big repos.
+    """
+    raw = os.environ.get("CODE_GRAPH_STORE_BATCH_SIZE", "1").strip()
+    try:
+        value = int(raw)
+    except ValueError:
+        logger.warning(
+            "Ignoring CODE_GRAPH_STORE_BATCH_SIZE=%r, expected an integer", raw,
+        )
+        return 1
+    return max(1, value)
+
+
+class _PendingWrites:
+    """Buffer parsed files and flush them through the store in batches."""
+
+    def __init__(self, store: GraphStore, batch_size: int) -> None:
+        self._store = store
+        self._batch_size = batch_size
+        self._pending: list[tuple[str, list[NodeInfo], list[EdgeInfo], str]] = []
+
+    def add(
+        self,
+        file_path: str,
+        nodes: list[NodeInfo],
+        edges: list[EdgeInfo],
+        fhash: str,
+    ) -> None:
+        if self._batch_size == 1:
+            self._store.store_file_nodes_edges(file_path, nodes, edges, fhash)
+            return
+        self._pending.append((file_path, nodes, edges, fhash))
+        if len(self._pending) >= self._batch_size:
+            self.flush()
+
+    def flush(self) -> None:
+        if not self._pending:
+            return
+        # Hand over the list and start a new one, so a caller holding the
+        # batch (a test, a wrapper) does not see it emptied underneath it.
+        pending, self._pending = self._pending, []
+        self._store.store_file_batch(pending)
+
+
 def full_build(
     repo_root: Path,
     store: GraphStore,
@@ -895,6 +944,7 @@ def full_build(
     file_count = len(files)
 
     use_serial = os.environ.get("CODE_GRAPH_SERIAL_PARSE", "") == "1"
+    writer = _PendingWrites(store, _store_batch_size())
 
     if use_serial or file_count < 8:
         # Serial fallback (for debugging or tiny repos)
@@ -904,7 +954,7 @@ def full_build(
                 source = full_path.read_bytes()
                 fhash = hashlib.sha256(source).hexdigest()
                 nodes, edges = parser.parse_bytes(full_path, source)
-                store.store_file_nodes_edges(str(full_path), nodes, edges, fhash)
+                writer.add(str(full_path), nodes, edges, fhash)
                 total_nodes += len(nodes)
                 total_edges += len(edges)
             except (OSError, PermissionError) as e:
@@ -930,17 +980,13 @@ def full_build(
                     errors.append({"file": rel_path, "error": error})
                     continue
                 full_path = repo_root / rel_path
-                store.store_file_nodes_edges(
-                    str(full_path),
-                    nodes,
-                    edges,
-                    fhash,
-                )
+                writer.add(str(full_path), nodes, edges, fhash)
                 total_nodes += len(nodes)
                 total_edges += len(edges)
                 if i % 200 == 0 or i == file_count:
                     logger.info("Progress: %d/%d files parsed", i, file_count)
 
+    writer.flush()
     store.set_metadata("last_updated", time.strftime("%Y-%m-%dT%H:%M:%S"))
     store.set_metadata("last_build_type", "full")
     _store_vcs_metadata(repo_root, store)
@@ -1036,6 +1082,7 @@ def incremental_update(
         store.commit()
 
     use_serial = os.environ.get("CODE_GRAPH_SERIAL_PARSE", "") == "1"
+    writer = _PendingWrites(store, _store_batch_size())
 
     if use_serial or len(to_parse) < 8:
         for rel_path in to_parse:
@@ -1044,7 +1091,7 @@ def incremental_update(
                 source = abs_path.read_bytes()
                 fhash = hashlib.sha256(source).hexdigest()
                 nodes, edges = parser.parse_bytes(abs_path, source)
-                store.store_file_nodes_edges(str(abs_path), nodes, edges, fhash)
+                writer.add(str(abs_path), nodes, edges, fhash)
                 total_nodes += len(nodes)
                 total_edges += len(edges)
             except (OSError, PermissionError) as e:
@@ -1065,15 +1112,11 @@ def incremental_update(
                     logger.warning("Error parsing %s: %s", rel_path, error)
                     errors.append({"file": rel_path, "error": error})
                     continue
-                store.store_file_nodes_edges(
-                    str(repo_root / rel_path),
-                    nodes,
-                    edges,
-                    fhash,
-                )
+                writer.add(str(repo_root / rel_path), nodes, edges, fhash)
                 total_nodes += len(nodes)
                 total_edges += len(edges)
 
+    writer.flush()
     store.set_metadata("last_updated", time.strftime("%Y-%m-%dT%H:%M:%S"))
     store.set_metadata("last_build_type", "incremental")
     _store_vcs_metadata(repo_root, store)

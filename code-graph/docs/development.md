@@ -201,6 +201,7 @@ Useful environment variables in tests:
 | `CODE_GRAPH_GIT_TIMEOUT=SECONDS` | Git subprocess timeout |
 | `CODE_GRAPH_RECURSE_SUBMODULES=1` | Include submodules |
 | `CODE_GRAPH_LEIDEN_SEED=N` | Community detection seed |
+| `CODE_GRAPH_STORE_BATCH_SIZE=N` | Files per write transaction (default 1) |
 
 Tests use `.git` directories (or `.code-graph`) to satisfy
 `_validate_repo_root`. Build small fixtures with `tmp_path`, as

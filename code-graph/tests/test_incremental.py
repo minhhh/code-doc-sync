@@ -5,12 +5,14 @@ from unittest.mock import MagicMock, patch  # noqa: F401 – patch used in tests
 
 from codegraph.graph import GraphStore
 from codegraph.incremental import (
+    _PendingWrites,
     _is_binary,
     _is_match,
     _load_ignore_patterns,
     _parse_single_file,
     _should_ignore,
     _single_hop_dependents,
+    _store_batch_size,
     ensure_repo_gitignore_excludes_crg,
     find_dependents,
     find_project_root,
@@ -561,6 +563,111 @@ class TestFullBuild:
             assert result["total_nodes"] > 0
             assert result["errors"] == []
             assert store.get_metadata("last_build_type") == "full"
+        finally:
+            store.close()
+
+
+class TestStoreBatching:
+    """Full-build writes are batched when CODE_GRAPH_STORE_BATCH_SIZE > 1."""
+
+    def _repo(self, tmp_path, count: int) -> list[str]:
+        (tmp_path / ".git").mkdir()
+        names = []
+        for i in range(count):
+            name = f"mod{i}.py"
+            (tmp_path / name).write_text(f"def fn{i}():\n    return {i}\n")
+            names.append(name)
+        return names
+
+    def test_batch_size_defaults_to_one(self):
+        with patch.dict("os.environ", {}, clear=False):
+            import os
+            os.environ.pop("CODE_GRAPH_STORE_BATCH_SIZE", None)
+            assert _store_batch_size() == 1
+
+    def test_batch_size_parsing(self):
+        with patch.dict("os.environ", {"CODE_GRAPH_STORE_BATCH_SIZE": "0"}):
+            assert _store_batch_size() == 1
+        with patch.dict("os.environ", {"CODE_GRAPH_STORE_BATCH_SIZE": "8"}):
+            assert _store_batch_size() == 8
+        with patch.dict("os.environ", {"CODE_GRAPH_STORE_BATCH_SIZE": "nope"}):
+            assert _store_batch_size() == 1
+
+    def test_full_build_batches_writes(self, tmp_path):
+        names = self._repo(tmp_path, 5)
+        store = GraphStore(tmp_path / "test.db")
+        try:
+            with (
+                patch.dict("os.environ", {"CODE_GRAPH_STORE_BATCH_SIZE": "2"}),
+                patch(
+                    "codegraph.incremental.get_all_tracked_files",
+                    return_value=names,
+                ),
+                patch.object(
+                    store, "store_file_batch", wraps=store.store_file_batch,
+                ) as batch_store,
+                patch.object(
+                    store,
+                    "store_file_nodes_edges",
+                    wraps=store.store_file_nodes_edges,
+                ) as single_store,
+            ):
+                result = full_build(tmp_path, store)
+
+            # 5 files at 2 per transaction: 2, 2, then a flushed remainder of 1
+            assert batch_store.call_count == 3
+            assert single_store.call_count == 0
+            assert [len(call.args[0]) for call in batch_store.call_args_list] == [2, 2, 1]
+            assert result["files_parsed"] == 5
+            assert len(store.get_all_files()) == 5
+        finally:
+            store.close()
+
+    def test_full_build_batch_size_one_keeps_per_file_writes(self, tmp_path):
+        names = self._repo(tmp_path, 3)
+        store = GraphStore(tmp_path / "test.db")
+        try:
+            with (
+                patch.dict("os.environ", {"CODE_GRAPH_STORE_BATCH_SIZE": "1"}),
+                patch(
+                    "codegraph.incremental.get_all_tracked_files",
+                    return_value=names,
+                ),
+                patch.object(
+                    store, "store_file_batch", wraps=store.store_file_batch,
+                ) as batch_store,
+                patch.object(
+                    store,
+                    "store_file_nodes_edges",
+                    wraps=store.store_file_nodes_edges,
+                ) as single_store,
+            ):
+                full_build(tmp_path, store)
+
+            assert batch_store.call_count == 0
+            assert single_store.call_count == 3
+        finally:
+            store.close()
+
+    def test_pending_writes_flushes_remainder(self, tmp_path):
+        store = GraphStore(tmp_path / "test.db")
+        try:
+            writer = _PendingWrites(store, 10)
+            from codegraph.parser import NodeInfo
+
+            writer.add(
+                str(tmp_path / "one.py"),
+                [NodeInfo(
+                    kind="File", name="one.py",
+                    file_path=str(tmp_path / "one.py"),
+                    line_start=1, line_end=1, language="python",
+                )],
+                [],
+                "hash",
+            )
+            assert store.get_node(str(tmp_path / "one.py")) is None
+            writer.flush()
+            assert store.get_node(str(tmp_path / "one.py")) is not None
         finally:
             store.close()
 

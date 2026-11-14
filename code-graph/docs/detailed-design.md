@@ -344,6 +344,12 @@ memory and is faster on graphs that fit comfortably in RAM.
 | Transitive test fan-out | `50` | `CODE_GRAPH_MAX_TRANSITIVE_FRONTIER` |
 | BFS engine | `sql` | `CODE_GRAPH_BFS_ENGINE` |
 | Git subprocess timeout | `30s` | `CODE_GRAPH_GIT_TIMEOUT` |
+| Files per write transaction | `1` | `CODE_GRAPH_STORE_BATCH_SIZE` |
+
+`CODE_GRAPH_STORE_BATCH_SIZE=1` writes each file in its own transaction.
+Values above 1 buffer the parsed nodes and edges for that many files and commit
+them together, which cuts commits on large repos at the cost of holding those
+graphs in memory and widening a failed transaction's rollback to the batch.
 
 Hardcoded, not tunable: Leiden `n_iterations=2`, resolution floor `0.05`,
 `min_size=2` for communities, `max_depth=15` for flow tracing, the 25%/10 split
@@ -389,7 +395,7 @@ there drops `tests/**`, so what follows is product code only. Reading it:
 `criticality` is the score from the formula above, `nodes` is distinct nodes over
 total tree nodes, four spaces of indentation is one level of depth, and a target
 listed twice is a re-encountered call whose subtree was not walked again. All
-40 traced flows are listed.
+41 traced flows are listed.
 
 <!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/cli/arch.py::arch_bridges#7336a9893bcf
@@ -815,10 +821,10 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/graph.py::build#0bb0bf0f147d
+* flow=code-graph/src/codegraph/cli/graph.py::build#456508de0e7f
     * entry_point=code-graph/src/codegraph/cli/graph.py::build
     * criticality=0.74
-    * nodes=226/460
+    * nodes=224/458
 * code-graph/src/codegraph/cli/graph.py::build
     * → code-graph/src/codegraph/build.py::build_or_update
         * → code-graph/src/codegraph/incremental.py::full_build
@@ -829,17 +835,10 @@ listed twice is a re-encountered call whose subtree was not walked again. All
                 * → code-graph/src/codegraph/graph/store.py::GraphStore._invalidate_cache
             * → code-graph/src/codegraph/graph/store.py::GraphStore.set_metadata
                 * → code-graph/src/codegraph/graph/store.py::GraphStore.commit
-            * → code-graph/src/codegraph/graph/store.py::GraphStore.store_file_nodes_edges
-                * → code-graph/src/codegraph/graph/store.py::GraphStore._begin_immediate
-                    * → code-graph/src/codegraph/graph/store.py::GraphStore.rollback
-                * → code-graph/src/codegraph/graph/store.py::GraphStore._invalidate_cache
-                * → code-graph/src/codegraph/graph/store.py::GraphStore.commit
-                * → code-graph/src/codegraph/graph/store.py::GraphStore.remove_file_data
-                * → code-graph/src/codegraph/graph/store.py::GraphStore.rollback
-                    * → code-graph/src/codegraph/graph/store.py::GraphStore.rollback
-                * → code-graph/src/codegraph/graph/store.py::GraphStore.upsert_edge
-                * → code-graph/src/codegraph/graph/store.py::GraphStore.upsert_node
-                    * → code-graph/src/codegraph/graph/store.py::GraphStore._make_qualified
+            * → code-graph/src/codegraph/incremental.py::_PendingWrites
+            * → code-graph/src/codegraph/incremental.py::_PendingWrites.add
+                * → code-graph/src/codegraph/incremental.py::_PendingWrites.flush
+            * → code-graph/src/codegraph/incremental.py::_PendingWrites.flush
             * → code-graph/src/codegraph/incremental.py::_make_executor
                 * → code-graph/src/codegraph/incremental.py::_select_executor_kind
             * → code-graph/src/codegraph/incremental.py::_run_receiver_resolver
@@ -857,6 +856,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
                 * → code-graph/src/codegraph/languages/spring.py::resolve_spring_di_calls
             * → code-graph/src/codegraph/incremental.py::_run_temporal_resolver
                 * → code-graph/src/codegraph/languages/temporal.py::resolve_temporal_calls
+            * → code-graph/src/codegraph/incremental.py::_store_batch_size
             * → code-graph/src/codegraph/incremental.py::_store_vcs_metadata
                 * → code-graph/src/codegraph/graph/store.py::GraphStore.set_metadata
                 * → code-graph/src/codegraph/incremental.py::_git_branch_info
@@ -1187,7 +1187,9 @@ listed twice is a re-encountered call whose subtree was not walked again. All
                     * → code-graph/src/codegraph/graph/store.py::GraphNode
             * → code-graph/src/codegraph/graph/store.py::GraphStore.remove_file_data
             * → code-graph/src/codegraph/graph/store.py::GraphStore.set_metadata
-            * → code-graph/src/codegraph/graph/store.py::GraphStore.store_file_nodes_edges
+            * → code-graph/src/codegraph/incremental.py::_PendingWrites
+            * → code-graph/src/codegraph/incremental.py::_PendingWrites.add
+            * → code-graph/src/codegraph/incremental.py::_PendingWrites.flush
             * → code-graph/src/codegraph/incremental.py::_load_ignore_patterns
             * → code-graph/src/codegraph/incremental.py::_make_executor
             * → code-graph/src/codegraph/incremental.py::_run_receiver_resolver
@@ -1196,6 +1198,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
             * → code-graph/src/codegraph/incremental.py::_run_temporal_resolver
             * → code-graph/src/codegraph/incremental.py::_should_ignore
                 * → code-graph/src/codegraph/incremental.py::_is_match
+            * → code-graph/src/codegraph/incremental.py::_store_batch_size
             * → code-graph/src/codegraph/incremental.py::_store_vcs_metadata
             * → code-graph/src/codegraph/incremental.py::find_dependents
                 * → code-graph/src/codegraph/incremental.py::DependentList
@@ -1204,6 +1207,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
                         * → code-graph/src/codegraph/graph/store.py::GraphStore._row_to_edge
                             * → code-graph/src/codegraph/graph/store.py::GraphEdge
                     * → code-graph/src/codegraph/graph/store.py::GraphStore.get_nodes_by_file
+                    * → code-graph/src/codegraph/incremental.py::_PendingWrites.add
             * → code-graph/src/codegraph/incremental.py::get_changed_files
                 * → code-graph/src/codegraph/incremental.py::_get_svn_changed_files
                 * → code-graph/src/codegraph/incremental.py::detect_vcs
@@ -1367,10 +1371,10 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/graph.py::update#9f067ab74a4c
+* flow=code-graph/src/codegraph/cli/graph.py::update#b31c56dec19f
     * entry_point=code-graph/src/codegraph/cli/graph.py::update
     * criticality=0.74
-    * nodes=226/460
+    * nodes=224/458
 * code-graph/src/codegraph/cli/graph.py::update
     * → code-graph/src/codegraph/build.py::build_or_update
         * → code-graph/src/codegraph/incremental.py::full_build
@@ -1381,17 +1385,10 @@ listed twice is a re-encountered call whose subtree was not walked again. All
                 * → code-graph/src/codegraph/graph/store.py::GraphStore._invalidate_cache
             * → code-graph/src/codegraph/graph/store.py::GraphStore.set_metadata
                 * → code-graph/src/codegraph/graph/store.py::GraphStore.commit
-            * → code-graph/src/codegraph/graph/store.py::GraphStore.store_file_nodes_edges
-                * → code-graph/src/codegraph/graph/store.py::GraphStore._begin_immediate
-                    * → code-graph/src/codegraph/graph/store.py::GraphStore.rollback
-                * → code-graph/src/codegraph/graph/store.py::GraphStore._invalidate_cache
-                * → code-graph/src/codegraph/graph/store.py::GraphStore.commit
-                * → code-graph/src/codegraph/graph/store.py::GraphStore.remove_file_data
-                * → code-graph/src/codegraph/graph/store.py::GraphStore.rollback
-                    * → code-graph/src/codegraph/graph/store.py::GraphStore.rollback
-                * → code-graph/src/codegraph/graph/store.py::GraphStore.upsert_edge
-                * → code-graph/src/codegraph/graph/store.py::GraphStore.upsert_node
-                    * → code-graph/src/codegraph/graph/store.py::GraphStore._make_qualified
+            * → code-graph/src/codegraph/incremental.py::_PendingWrites
+            * → code-graph/src/codegraph/incremental.py::_PendingWrites.add
+                * → code-graph/src/codegraph/incremental.py::_PendingWrites.flush
+            * → code-graph/src/codegraph/incremental.py::_PendingWrites.flush
             * → code-graph/src/codegraph/incremental.py::_make_executor
                 * → code-graph/src/codegraph/incremental.py::_select_executor_kind
             * → code-graph/src/codegraph/incremental.py::_run_receiver_resolver
@@ -1409,6 +1406,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
                 * → code-graph/src/codegraph/languages/spring.py::resolve_spring_di_calls
             * → code-graph/src/codegraph/incremental.py::_run_temporal_resolver
                 * → code-graph/src/codegraph/languages/temporal.py::resolve_temporal_calls
+            * → code-graph/src/codegraph/incremental.py::_store_batch_size
             * → code-graph/src/codegraph/incremental.py::_store_vcs_metadata
                 * → code-graph/src/codegraph/graph/store.py::GraphStore.set_metadata
                 * → code-graph/src/codegraph/incremental.py::_git_branch_info
@@ -1739,7 +1737,9 @@ listed twice is a re-encountered call whose subtree was not walked again. All
                     * → code-graph/src/codegraph/graph/store.py::GraphNode
             * → code-graph/src/codegraph/graph/store.py::GraphStore.remove_file_data
             * → code-graph/src/codegraph/graph/store.py::GraphStore.set_metadata
-            * → code-graph/src/codegraph/graph/store.py::GraphStore.store_file_nodes_edges
+            * → code-graph/src/codegraph/incremental.py::_PendingWrites
+            * → code-graph/src/codegraph/incremental.py::_PendingWrites.add
+            * → code-graph/src/codegraph/incremental.py::_PendingWrites.flush
             * → code-graph/src/codegraph/incremental.py::_load_ignore_patterns
             * → code-graph/src/codegraph/incremental.py::_make_executor
             * → code-graph/src/codegraph/incremental.py::_run_receiver_resolver
@@ -1748,6 +1748,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
             * → code-graph/src/codegraph/incremental.py::_run_temporal_resolver
             * → code-graph/src/codegraph/incremental.py::_should_ignore
                 * → code-graph/src/codegraph/incremental.py::_is_match
+            * → code-graph/src/codegraph/incremental.py::_store_batch_size
             * → code-graph/src/codegraph/incremental.py::_store_vcs_metadata
             * → code-graph/src/codegraph/incremental.py::find_dependents
                 * → code-graph/src/codegraph/incremental.py::DependentList
@@ -1756,6 +1757,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
                         * → code-graph/src/codegraph/graph/store.py::GraphStore._row_to_edge
                             * → code-graph/src/codegraph/graph/store.py::GraphEdge
                     * → code-graph/src/codegraph/graph/store.py::GraphStore.get_nodes_by_file
+                    * → code-graph/src/codegraph/incremental.py::_PendingWrites.add
             * → code-graph/src/codegraph/incremental.py::get_changed_files
                 * → code-graph/src/codegraph/incremental.py::_get_svn_changed_files
                 * → code-graph/src/codegraph/incremental.py::detect_vcs
@@ -2276,6 +2278,26 @@ listed twice is a re-encountered call whose subtree was not walked again. All
     * criticality=0.3978
     * nodes=9/13
 * code-graph/src/codegraph/graph/store.py::GraphStore.store_file_batch
+    * → code-graph/src/codegraph/graph/store.py::GraphStore._begin_immediate
+        * → code-graph/src/codegraph/graph/store.py::GraphStore.rollback
+    * → code-graph/src/codegraph/graph/store.py::GraphStore._invalidate_cache
+    * → code-graph/src/codegraph/graph/store.py::GraphStore.commit
+        * → code-graph/src/codegraph/graph/store.py::GraphStore.commit
+    * → code-graph/src/codegraph/graph/store.py::GraphStore.remove_file_data
+        * → code-graph/src/codegraph/graph/store.py::GraphStore._invalidate_cache
+    * → code-graph/src/codegraph/graph/store.py::GraphStore.rollback
+        * → code-graph/src/codegraph/graph/store.py::GraphStore.rollback
+    * → code-graph/src/codegraph/graph/store.py::GraphStore.upsert_edge
+    * → code-graph/src/codegraph/graph/store.py::GraphStore.upsert_node
+        * → code-graph/src/codegraph/graph/store.py::GraphStore._make_qualified
+<!-- CTX-SYNC:FLOW-END -->
+
+<!-- CTX-SYNC:FLOW-START -->
+* flow=code-graph/src/codegraph/graph/store.py::GraphStore.store_file_nodes_edges#f6cbd454b320
+    * entry_point=code-graph/src/codegraph/graph/store.py::GraphStore.store_file_nodes_edges
+    * criticality=0.3978
+    * nodes=9/13
+* code-graph/src/codegraph/graph/store.py::GraphStore.store_file_nodes_edges
     * → code-graph/src/codegraph/graph/store.py::GraphStore._begin_immediate
         * → code-graph/src/codegraph/graph/store.py::GraphStore.rollback
     * → code-graph/src/codegraph/graph/store.py::GraphStore._invalidate_cache
