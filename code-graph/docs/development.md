@@ -24,13 +24,20 @@ CLI surface). Ruff checks everything.
 
 ## Ownership boundary
 
-- `src/codegraph/cli/` — **ours**. Typer commands, flags, output, exit codes.
-  One module per verb group (`graph.py`, `lookup.py`, `change.py`, `health.py`,
-  `flows.py`, `arch.py`, `refactor.py`); `app.py` owns the root `Typer`,
-  `options.py` the shared option aliases, `common.py` root resolution and
-  `_emit`.
-- `src/codegraph/graph/migrations.py` — migration framework lives here; the schema
-  baseline is ours.
+Two things are ours to shape: the CLI contract and the database schema. The
+engine underneath them we change only as much as a feature needs.
+
+- `src/codegraph/cli/` — **ours**. Typer commands, flags, output payloads, exit
+  codes. One module per verb group (`graph.py`, `lookup.py`, `change.py`,
+  `health.py`, `flows.py`, `arch.py`, `refactor.py`); `app.py` owns the root
+  `Typer`, `options.py` the shared option aliases, `common.py` root resolution
+  and `_emit`.
+- `src/codegraph/graph/migrations.py` — **ours**. The schema history:
+  `LATEST_VERSION`, the `MIGRATIONS` dict, and the `_migrate_vN` steps. Edit it
+  when the tables change, not when a query changes.
+- `src/codegraph/graph/graph_store.py` — the engine side of that schema. It
+  reads and writes the tables and runs migrations from its constructor; treat
+  it like the rest of the engine.
 - Everything else under `src/codegraph/` — the graph engine. Keep changes small
   and local; do not reformat wholesale, so diffs stay reviewable.
 - `tests/` — engine tests plus `tests/test_cli.py` for the CLI.
