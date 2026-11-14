@@ -389,7 +389,7 @@ there drops `tests/**`, so what follows is product code only. Reading it:
 `criticality` is the score from the formula above, `nodes` is distinct nodes over
 total tree nodes, four spaces of indentation is one level of depth, and a target
 listed twice is a re-encountered call whose subtree was not walked again. All
-41 traced flows are listed.
+40 traced flows are listed.
 
 <!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/cli/arch.py::arch_bridges#7336a9893bcf
@@ -2188,15 +2188,6 @@ listed twice is a re-encountered call whose subtree was not walked again. All
             * → code-graph/src/codegraph/refactor.py::_is_plausible_caller
                 * → code-graph/src/codegraph/refactor.py::_path_segments
             * → code-graph/src/codegraph/refactor.py::_is_test_file
-<!-- CTX-SYNC:FLOW-END -->
-
-<!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/communities.py::_compute_cohesion#025414d8a439
-    * entry_point=code-graph/src/codegraph/communities.py::_compute_cohesion
-    * criticality=0.36
-    * nodes=2/2
-* code-graph/src/codegraph/communities.py::_compute_cohesion
-    * → code-graph/src/codegraph/communities.py::_compute_cohesion_batch
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->

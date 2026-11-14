@@ -215,19 +215,6 @@ def _build_adjacency(edges: list[GraphEdge]) -> dict[str, list[str]]:
     return adj
 
 
-def _compute_cohesion(
-    member_qns: set[str],
-    all_edges: list[GraphEdge],
-    adj: dict[str, list[str]] | None = None,
-) -> float:
-    """Compute cohesion: internal_edges / (internal_edges + external_edges).
-
-    For multiple communities, prefer :func:`_compute_cohesion_batch`, which
-    runs in O(edges) total instead of O(edges) per community.
-    """
-    return _compute_cohesion_batch([member_qns], all_edges)[0]
-
-
 # ---------------------------------------------------------------------------
 # Leiden-based community detection (igraph)
 # ---------------------------------------------------------------------------

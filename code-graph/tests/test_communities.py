@@ -7,7 +7,6 @@ import pytest
 
 from codegraph.communities import (
     IGRAPH_AVAILABLE,
-    _compute_cohesion,
     _compute_cohesion_batch,
     _detect_file_based,
     _generate_community_name,
@@ -272,7 +271,7 @@ class TestCommunities:
                 target_qualified="c", file_path="f.py", line=2, extra={},
             ),
         ]
-        cohesion = _compute_cohesion(member_qns, edges)
+        cohesion = _compute_cohesion_batch([member_qns], edges)[0]
         # 1 internal (a->b), 1 external (a->c) => 0.5
         assert cohesion == pytest.approx(0.5)
 
@@ -285,19 +284,20 @@ class TestCommunities:
                 target_qualified="b", file_path="f.py", line=1, extra={},
             ),
         ]
-        cohesion = _compute_cohesion(member_qns, edges)
+        cohesion = _compute_cohesion_batch([member_qns], edges)[0]
         assert cohesion == pytest.approx(1.0)
 
     def test_cohesion_no_edges(self):
         """No edges => cohesion = 0.0."""
         member_qns = {"a", "b"}
-        cohesion = _compute_cohesion(member_qns, [])
+        cohesion = _compute_cohesion_batch([member_qns], [])[0]
         assert cohesion == pytest.approx(0.0)
 
-    def test_compute_cohesion_batch_matches_single(self):
-        """Batch cohesion must produce identical results to calling
-        _compute_cohesion once per community. Regression guard for the
-        O(files * edges) -> O(edges) refactor.
+    def test_compute_cohesion_batch_values(self):
+        """Batch cohesion uses internal/(internal+external) per community.
+
+        Regression guard for the O(files * edges) -> O(edges) refactor: both
+        communities are computed in one pass over the edges.
         """
         edges = [
             # Internal to comm_a
@@ -330,12 +330,7 @@ class TestCommunities:
         comm_b = {"b::g1", "b::g2"}
 
         batch = _compute_cohesion_batch([comm_a, comm_b], edges)
-        expected = [
-            _compute_cohesion(comm_a, edges),
-            _compute_cohesion(comm_b, edges),
-        ]
-        assert batch == expected
-        # Sanity: comm_a has 1 internal + 1 external = 0.5
+        # comm_a has 1 internal + 1 external = 0.5
         # comm_b has 1 internal + 2 external = 1/3
         assert batch[0] == pytest.approx(0.5)
         assert batch[1] == pytest.approx(1 / 3)
@@ -419,9 +414,9 @@ class TestCommunities:
         assert db["level"] == 0
 
     def test_detected_cohesions_match_direct_computation(self):
-        """Every stored community cohesion must equal what _compute_cohesion
-        produces when called directly on that community's member set and
-        the full edge list.
+        """Every stored community cohesion must equal what a direct
+        _compute_cohesion_batch call produces on that community's member set
+        and the full edge list.
 
         Algorithm-agnostic: runs against whichever path detect_communities
         takes (Leiden if igraph is available, file-based otherwise). Any
@@ -459,7 +454,7 @@ class TestCommunities:
             if comm.get("level", 0) != 0:
                 continue
             member_qns = set(comm["members"])
-            direct = round(_compute_cohesion(member_qns, all_edges), 4)
+            direct = round(_compute_cohesion_batch([member_qns], all_edges)[0], 4)
             assert comm["cohesion"] == direct, (
                 f"Community {comm['name']!r} stored cohesion "
                 f"{comm['cohesion']} but direct computation gives {direct}"
