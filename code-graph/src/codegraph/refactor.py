@@ -427,25 +427,30 @@ def find_dead_code(
         decorators = node.extra.get("decorators", ())
         if isinstance(decorators, str):
             decorators = (decorators,)
-        if decorators:
+        # Stored text keeps the arguments, as in
+        # "app.callback(invoke_without_command=True)", so compare bare names.
+        decorator_names = [d.split("(", 1)[0].strip() for d in decorators]
+        if decorator_names:
             if node.kind in ("Function", "Test"):
                 if any(
                     # @property -- invoked via attribute access
                     # @abstractmethod -- polymorphic dispatch
                     # @classmethod/@staticmethod -- called via Class.method()
-                    d in ("property", "abstractmethod", "classmethod", "staticmethod")
-                    or d.endswith(".abstractmethod")
-                    # @app.callback -- Typer/Click invokes the root callback
-                    or d == "callback"
-                    or d.endswith(".callback")
+                    name in (
+                        "property", "abstractmethod", "classmethod", "staticmethod",
+                    )
+                    or name.endswith(".abstractmethod")
+                    # Typer/Click: root callback and post-command result callback
+                    or name in ("callback", "result_callback")
+                    or name.endswith((".callback", ".result_callback"))
                     # Angular @HostListener -- framework event system
-                    or d.startswith("HostListener")
-                    for d in decorators
+                    or name.startswith("HostListener")
+                    for name in decorator_names
                 ):
                     continue
             if node.kind == "Class":
                 # @dataclass classes are instantiated as types, not via CALLS
-                if any("dataclass" in d for d in decorators):
+                if any("dataclass" in name for name in decorator_names):
                     continue
 
         # Skip methods that override an @abstractmethod in a base class --

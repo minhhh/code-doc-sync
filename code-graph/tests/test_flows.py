@@ -120,6 +120,16 @@ class TestFlows:
         ep_names = {ep.name for ep in eps}
         assert "my_fixture" in ep_names
 
+    def test_detect_entry_points_typer_callback(self):
+        """Typer root callbacks and result callbacks are entry points."""
+        self._add_func(
+            "_main", extra={"decorators": ["app.callback(invoke_without_command=True)"]},
+        )
+        self._add_func("_report", extra={"decorators": ["app.result_callback()"]})
+        eps = detect_entry_points(self.store)
+        ep_names = {ep.name for ep in eps}
+        assert {"_main", "_report"} <= ep_names
+
     def test_detect_entry_points_django_receiver(self):
         """Django signal receiver decorator marks function as entry point."""
         self._add_func("on_save", extra={"decorators": ["receiver(post_save)"]})

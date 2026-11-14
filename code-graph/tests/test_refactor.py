@@ -200,11 +200,29 @@ class TestFindDeadCode:
 
     def test_find_dead_code_excludes_framework_callback(self):
         """@app.callback() hooks are invoked by Typer, not by a CALLS edge."""
-        self._add_decorated("_root_callback", "app.callback()")
+        self._add_decorated(
+            "_root_callback", "app.callback(invoke_without_command=True)",
+        )
 
         dead = find_dead_code(self.store)
 
         assert "_root_callback" not in {d["name"] for d in dead}
+
+    def test_find_dead_code_excludes_result_callback(self):
+        """@app.result_callback() runs after the command returns."""
+        self._add_decorated("_print_result", "app.result_callback()")
+
+        dead = find_dead_code(self.store)
+
+        assert "_print_result" not in {d["name"] for d in dead}
+
+    def test_find_dead_code_excludes_allowlisted_property(self):
+        """@property is on the allowlist, independent of entry-point matching."""
+        self._add_decorated("_uncalled_property", "property")
+
+        dead = find_dead_code(self.store)
+
+        assert "_uncalled_property" not in {d["name"] for d in dead}
 
     def test_find_dead_code_keeps_other_decorated_nodes(self):
         """A decorator outside the allowlist does not make a node live."""

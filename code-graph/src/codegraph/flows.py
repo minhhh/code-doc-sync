@@ -35,7 +35,8 @@ _FRAMEWORK_DECORATOR_PATTERNS: list[re.Pattern[str]] = [
     # CLI frameworks
     re.compile(r"click\.(command|group)", re.IGNORECASE),
     re.compile(r"\w+\.(command|group)\b", re.IGNORECASE),  # Click subgroups: @mygroup.command()
-    re.compile(r"\w+\.callback\b", re.IGNORECASE),  # @app.callback() root hook
+    # Typer/Click: @app.callback() root hook and @app.result_callback()
+    re.compile(r"\w+\.(result_)?callback\b", re.IGNORECASE),
     # Pydantic validators/serializers
     re.compile(r"(field|model)_(serializer|validator)", re.IGNORECASE),
     # Task queues

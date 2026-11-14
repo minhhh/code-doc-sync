@@ -182,8 +182,8 @@ A node is an entry point if any of these hold:
 1. No incoming `CALLS` edge. Edges sourced at `File` nodes are excluded from
    this test, so a function called only from module scope still counts.
 2. A decorator matches a framework pattern: `app.<verb>`, `app.callback`,
-   `router.<verb>`, `blueprint.route`, `click.command`, `<group>.command`,
-   `field_validator`, `celery.task`, and their siblings.
+   `app.result_callback`, `router.<verb>`, `blueprint.route`, `click.command`,
+   `<group>.command`, `field_validator`, `celery.task`, and their siblings.
 3. The name matches `main`, `__main__`, `test_*`, `Test[A-Z]…`, `on_*`,
    `handle_*`, `handler`, `lambda_handler`, `upgrade`, or the other migration
    entry names.
@@ -241,8 +241,9 @@ exclusions:
 - **A decorator on the allowlist.** The node is invoked by a framework that no
   `CALLS` edge can represent: `@property` (attribute access), `@abstractmethod`
   (polymorphic dispatch), `@classmethod` and `@staticmethod` (called through the
-  class), `@app.callback` (a Typer/Click root hook), `@HostListener` (Angular
-  events), and `@dataclass` on a class (instantiated as a type). The list is
+  class), `@app.callback` (a Typer/Click root hook), `@app.result_callback`
+  (the post-command hook), `@HostListener` (Angular events), and `@dataclass`
+  on a class (instantiated as a type). The list is
   closed on purpose. A decorator only earns its place when the framework is
   known to call the node itself, so `@functools.lru_cache` on an uncalled
   helper, or a project-specific `@timed`, still reports as dead: precision here
