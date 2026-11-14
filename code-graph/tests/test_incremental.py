@@ -655,7 +655,7 @@ class TestStoreBatching:
         names = self._repo(tmp_path, 3)
         store = GraphStore(tmp_path / "test.db")
         try:
-            from codegraph.parser import CodeParser
+            from codegraph.parsing.parser import CodeParser
 
             real_parse = CodeParser.parse_bytes
 
@@ -688,7 +688,7 @@ class TestStoreBatching:
         store = GraphStore(tmp_path / "test.db")
         try:
             writer = _PendingWrites(store, 10)
-            from codegraph.parser import NodeInfo
+            from codegraph.parsing.parser import NodeInfo
 
             writer.add(
                 str(tmp_path / "one.py"),
@@ -821,7 +821,7 @@ class TestMultiHopDependents:
 
     def _make_chain_store(self, tmp_path):
         """Build A -> B -> C chain in the graph."""
-        from codegraph.parser import EdgeInfo, NodeInfo
+        from codegraph.parsing.parser import EdgeInfo, NodeInfo
 
         db_path = tmp_path / "chain.db"
         store = GraphStore(db_path)
@@ -875,7 +875,7 @@ class TestMultiHopDependents:
 
     def test_cap_triggers_on_many_files(self, tmp_path):
         """The 500-file cap prevents runaway expansion."""
-        from codegraph.parser import EdgeInfo, NodeInfo
+        from codegraph.parsing.parser import EdgeInfo, NodeInfo
 
         db_path = tmp_path / "big.db"
         store = GraphStore(db_path)
@@ -914,7 +914,7 @@ class TestMultiHopDependents:
     def test_truncated_flag_set_when_capped(self, tmp_path):
         """Regression test for #261: find_dependents must set
         DependentList.truncated = True when the result is capped."""
-        from codegraph.parser import EdgeInfo, NodeInfo
+        from codegraph.parsing.parser import EdgeInfo, NodeInfo
 
         db_path = tmp_path / "trunc.db"
         store = GraphStore(db_path)

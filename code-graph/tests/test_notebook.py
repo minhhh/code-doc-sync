@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from codegraph.parser import _SQL_TABLE_RE, CodeParser
+from codegraph.parsing.parser import _SQL_TABLE_RE, CodeParser
 from tests.support import parse_path
 
 FIXTURES = Path(__file__).parent / "fixtures"

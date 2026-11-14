@@ -10,13 +10,13 @@ from pathlib import Path
 
 import pytest
 
-from codegraph.languages import custom as custom_languages
-from codegraph.languages.custom import (
+from codegraph.parsing import custom as custom_languages
+from codegraph.parsing.custom import (
     CONFIG_RELATIVE_PATH,
     MAX_CUSTOM_LANGUAGES,
     load_custom_languages,
 )
-from codegraph.parser import (
+from codegraph.parsing.parser import (
     EXTENSION_TO_LANGUAGE,
     CodeParser,
     _builtin_language_names,

@@ -5,7 +5,7 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
-from codegraph.languages.tsconfig import TsconfigResolver
+from codegraph.parsing.tsconfig import TsconfigResolver
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

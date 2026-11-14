@@ -100,7 +100,7 @@ Rules:
 
 ## Add a language
 
-Built-in languages live in `parser.py`:
+Built-in languages live in `parsing/parser.py`:
 
 1. Add extensions to `EXTENSION_TO_LANGUAGE`.
 2. Add node-type lists to `_CLASS_TYPES`, `_FUNCTION_TYPES`, `_IMPORT_TYPES`,
@@ -123,11 +123,11 @@ import_node_types = ["open_statement"]
 call_node_types = ["application_expression"]
 ```
 
-See `languages/custom.py` for the full schema and validation rules.
+See `parsing/custom.py` for the full schema and validation rules.
 
 ## Add or change resolution
 
-Cross-file resolution is in `parser.py`:
+Cross-file resolution is in `parsing/parser.py`:
 
 - `_collect_file_scope` — local names + import map.
 - `_resolve_module_to_file` / `_do_resolve_module` — module path → file.

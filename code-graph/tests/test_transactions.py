@@ -8,7 +8,7 @@ from unittest.mock import patch
 import pytest
 
 from codegraph.graph import GraphStore
-from codegraph.parser import NodeInfo
+from codegraph.parsing.parser import NodeInfo
 from codegraph.communities import store_communities
 from codegraph.flows import store_flows
 

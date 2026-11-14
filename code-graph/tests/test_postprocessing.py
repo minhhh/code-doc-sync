@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from codegraph.graph import GraphStore
 from codegraph.incremental import full_build
-from codegraph.parser import EdgeInfo, NodeInfo
+from codegraph.parsing.parser import EdgeInfo, NodeInfo
 from codegraph.postprocessing import run_post_processing
 
 

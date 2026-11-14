@@ -21,7 +21,7 @@ import networkx as nx
 
 from ..lib.constants import BFS_ENGINE, MAX_IMPACT_DEPTH, MAX_IMPACT_NODES
 from .migrations import run_migrations
-from ..parser import EdgeInfo, NodeInfo
+from ..parsing.parser import EdgeInfo, NodeInfo
 
 logger = logging.getLogger(__name__)
 

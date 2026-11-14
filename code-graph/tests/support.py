@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from codegraph.parser import CodeParser, EdgeInfo, NodeInfo
+from codegraph.parsing.parser import CodeParser, EdgeInfo, NodeInfo
 
 
 def parse_path(

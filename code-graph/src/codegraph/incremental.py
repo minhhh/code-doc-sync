@@ -19,7 +19,7 @@ from pathlib import Path, PurePosixPath
 from typing import Optional
 
 from .graph import GraphStore
-from .parser import CodeParser, EdgeInfo, NodeInfo
+from .parsing.parser import CodeParser, EdgeInfo, NodeInfo
 
 _MAX_PARSE_WORKERS = int(os.environ.get("CODE_GRAPH_PARSE_WORKERS", str(min(os.cpu_count() or 4, 8))))
 
@@ -63,7 +63,7 @@ def _run_rescript_resolver(store: GraphStore) -> Optional[dict]:
     build never fails because of it. Returns stats or None on error.
     """
     try:
-        from .languages.rescript import resolve_rescript_cross_module
+        from .parsing.rescript import resolve_rescript_cross_module
         return resolve_rescript_cross_module(store)
     except Exception as exc:  # noqa: BLE001 - best-effort post-pass
         logger.warning("ReScript cross-module resolver failed: %s", exc)
@@ -75,7 +75,7 @@ def _run_spring_resolver(store: GraphStore) -> Optional[dict]:
     build never fails because of it. Returns stats or None on error.
     """
     try:
-        from .languages.spring import resolve_spring_di_calls
+        from .parsing.spring import resolve_spring_di_calls
         return resolve_spring_di_calls(store)
     except Exception as exc:  # noqa: BLE001 - best-effort post-pass
         logger.warning("Spring DI resolver failed: %s", exc)
@@ -87,7 +87,7 @@ def _run_temporal_resolver(store: GraphStore) -> Optional[dict]:
     build never fails because of it. Returns stats or None on error.
     """
     try:
-        from .languages.temporal import resolve_temporal_calls
+        from .parsing.temporal import resolve_temporal_calls
         return resolve_temporal_calls(store)
     except Exception as exc:  # noqa: BLE001 - best-effort post-pass
         logger.warning("Temporal resolver failed: %s", exc)

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from codegraph.parser import CodeParser
+from codegraph.parsing.parser import CodeParser
 from tests.support import parse_path
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -1964,7 +1964,7 @@ class TestRescriptCrossModuleResolver:
         assert stats["imports_resolved"] >= 2
 
     def test_resolver_is_idempotent(self, tmp_path):
-        from codegraph.languages.rescript import (
+        from codegraph.parsing.rescript import (
             resolve_rescript_cross_module,
         )
         store, _ = self._build(tmp_path)

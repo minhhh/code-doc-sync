@@ -17,7 +17,7 @@ from codegraph.communities import (
     store_communities,
 )
 from codegraph.graph import GraphEdge, GraphNode, GraphStore
-from codegraph.parser import EdgeInfo, NodeInfo
+from codegraph.parsing.parser import EdgeInfo, NodeInfo
 
 
 class TestCommunities:

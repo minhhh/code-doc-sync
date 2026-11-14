@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from codegraph.parser import CodeParser
+from codegraph.parsing.parser import CodeParser
 from tests.support import parse_path
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -789,7 +789,7 @@ class TestCodeParser:
     def test_jest_tests_dir_detected_as_test_file(self):
         """A file under __tests__/ should be classified as a test file even
         when the filename itself has no .test./.spec. marker."""
-        from codegraph.parser import _is_test_file
+        from codegraph.parsing.parser import _is_test_file
         assert _is_test_file("src/__tests__/UserService.ts")
         assert _is_test_file("src\\__tests__\\UserService.ts")
         # Negative: __tests__ as a substring without path separators must not match

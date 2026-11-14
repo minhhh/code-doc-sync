@@ -13,7 +13,7 @@ from codegraph.changes import (
 )
 from codegraph.flows import store_flows, trace_flows
 from codegraph.graph import GraphStore
-from codegraph.parser import EdgeInfo, NodeInfo
+from codegraph.parsing.parser import EdgeInfo, NodeInfo
 
 
 class TestChanges:

@@ -15,8 +15,8 @@ from typing import NamedTuple, Optional
 
 import tree_sitter_language_pack as tslp
 
-from .languages.custom import CustomLanguage, load_custom_languages
-from .languages.tsconfig import TsconfigResolver
+from .custom import CustomLanguage, load_custom_languages
+from .tsconfig import TsconfigResolver
 
 
 class CellInfo(NamedTuple):

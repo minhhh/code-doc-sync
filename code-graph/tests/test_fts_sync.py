@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from codegraph.graph import GraphStore
-from codegraph.parser import NodeInfo
+from codegraph.parsing.parser import NodeInfo
 from codegraph.search import rebuild_fts_index
 
 @pytest.fixture

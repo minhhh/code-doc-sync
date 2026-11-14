@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 
 from codegraph.graph import GraphStore
-from codegraph.parser import CodeParser, EdgeInfo, NodeInfo
+from codegraph.parsing.parser import CodeParser, EdgeInfo, NodeInfo
 from codegraph.refactor import (
     REFACTOR_EXPIRY_SECONDS,
     _pending_refactors,
