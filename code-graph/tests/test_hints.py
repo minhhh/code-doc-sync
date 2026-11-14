@@ -66,3 +66,18 @@ class TestRelated:
         )
 
         assert hints["related"] == ["a.py", "b.py", "c.py"]
+
+
+#: Commands that attach hints. Each must have follow-up suggestions, or the
+#: payload carries an empty list with no explanation.
+HINTED_COMMANDS = {
+    "arch communities", "arch community", "arch overview", "arch hubs",
+    "arch bridges", "arch surprises", "change risk", "change flows",
+    "health dead-code", "health knowledge-gaps", "health suggested-questions",
+    "refactor rename", "refactor suggest", "search",
+    "flows list", "flows show",
+}
+
+
+def test_every_hinted_command_has_suggestions():
+    assert sorted(set(_WORKFLOW) ^ HINTED_COMMANDS) == []

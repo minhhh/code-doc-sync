@@ -11,7 +11,6 @@ from ..analysis import generate_suggested_questions
 from ..refactor import find_dead_code
 from .common import _emit, _root, _store, _with_hints
 from .options import FormatOption, NoColorOption, PrettyOption, RootOption
-from .suggestions import for_command
 
 health_app = typer.Typer(
     name="health",
@@ -37,7 +36,6 @@ def dead_code(
         "summary": f"Found {len(dead)} dead code symbol(s).",
         "dead_code": dead,
         "total": len(dead),
-        "next_command_suggestions": for_command("health dead-code"),
     }
     _emit(_with_hints(payload, "health dead-code"), output_format=output, pretty=pretty, no_color=no_color)
 @health_app.command("large-functions")
@@ -72,7 +70,6 @@ def knowledge_gaps(
         "gaps": gaps,
         "total_gaps": sum(len(v) for v in gaps.values()),
         "summary": {name: len(items) for name, items in gaps.items()},
-        "next_command_suggestions": for_command("health knowledge-gaps"),
     }
     _emit(_with_hints(payload, "health knowledge-gaps"), output_format=output, pretty=pretty, no_color=no_color)
 @health_app.command("suggested-questions")
@@ -93,6 +90,5 @@ def suggested_questions(
             priority: sum(1 for q in questions if q.get("priority") == priority)
             for priority in ("high", "medium", "low")
         },
-        "next_command_suggestions": for_command("health suggested-questions"),
     }
     _emit(_with_hints(payload, "health suggested-questions"), output_format=output, pretty=pretty, no_color=no_color)

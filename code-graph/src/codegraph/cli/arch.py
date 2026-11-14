@@ -19,7 +19,6 @@ from ..communities import (
 from ..incremental import get_db_path
 from .common import _emit, _root, _store, _with_hints
 from .options import FormatOption, NoColorOption, PrettyOption, RootOption
-from .suggestions import for_command
 
 arch_app = typer.Typer(
     name="arch",
@@ -136,7 +135,6 @@ def arch_hubs(
     payload: dict[str, Any] = {
         "hub_nodes": hubs,
         "count": len(hubs),
-        "next_command_suggestions": for_command("arch hubs"),
     }
     _emit(_with_hints(payload, "arch hubs"), output_format=output, pretty=pretty, no_color=no_color)
 @arch_app.command("bridges")
@@ -154,7 +152,6 @@ def arch_bridges(
     payload: dict[str, Any] = {
         "bridge_nodes": bridges,
         "count": len(bridges),
-        "next_command_suggestions": for_command("arch bridges"),
     }
     _emit(_with_hints(payload, "arch bridges"), output_format=output, pretty=pretty, no_color=no_color)
 @arch_app.command("surprises")
@@ -172,6 +169,5 @@ def arch_surprises(
     payload: dict[str, Any] = {
         "surprising_connections": surprises,
         "count": len(surprises),
-        "next_command_suggestions": for_command("arch surprises"),
     }
     _emit(_with_hints(payload, "arch surprises"), output_format=output, pretty=pretty, no_color=no_color)

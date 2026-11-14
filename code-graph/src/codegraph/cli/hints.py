@@ -141,6 +141,100 @@ _WORKFLOW: dict[str, list[dict[str, str]]] = {
             "suggestion": "Check the blast radius from matched nodes",
         },
     ],
+    "arch hubs": [
+        {
+            "command": "change impact",
+            "suggestion": "Check blast radius of a hub",
+        },
+        {
+            "command": "query callers_of",
+            "suggestion": "See what calls a hub",
+        },
+        {
+            "command": "arch bridges",
+            "suggestion": "Find architectural chokepoints",
+        },
+    ],
+    "arch bridges": [
+        {
+            "command": "arch hubs",
+            "suggestion": "Find most connected nodes",
+        },
+        {
+            "command": "change impact",
+            "suggestion": "Check blast radius",
+        },
+        {
+            "command": "change risk",
+            "suggestion": "See if bridges are affected",
+        },
+    ],
+    "arch surprises": [
+        {
+            "command": "arch overview",
+            "suggestion": "See the community structure",
+        },
+        {
+            "command": "query callers_of",
+            "suggestion": "Trace the coupling",
+        },
+        {
+            "command": "arch bridges",
+            "suggestion": "Find chokepoints",
+        },
+    ],
+    "health knowledge-gaps": [
+        {
+            "command": "health dead-code",
+            "suggestion": "Find unused symbols",
+        },
+        {
+            "command": "arch hubs",
+            "suggestion": "Find high-impact nodes",
+        },
+        {
+            "command": "health suggested-questions",
+            "suggestion": "Review open questions",
+        },
+    ],
+    "health dead-code": [
+        {
+            "command": "change impact",
+            "suggestion": "Confirm nothing depends on it",
+        },
+        {
+            "command": "query callers_of",
+            "suggestion": "Double-check the call sites",
+        },
+    ],
+    "health suggested-questions": [
+        {
+            "command": "health knowledge-gaps",
+            "suggestion": "Find structural weaknesses",
+        },
+        {
+            "command": "change risk",
+            "suggestion": "Get a risk-scored review",
+        },
+        {
+            "command": "arch overview",
+            "suggestion": "See the community map",
+        },
+    ],
+    "refactor suggest": [
+        {
+            "command": "refactor rename",
+            "suggestion": "Preview a rename before applying it",
+        },
+        {
+            "command": "arch communities",
+            "suggestion": "See which community the code belongs to",
+        },
+        {
+            "command": "health dead-code",
+            "suggestion": "Check whether the target is still called",
+        },
+    ],
 }
 
 # Maximum items per hints category returned to the caller.

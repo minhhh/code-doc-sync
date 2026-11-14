@@ -339,20 +339,6 @@ def _command_paths(typer_app: object, prefix: str = "") -> set[str]:
     return paths
 
 
-def test_suggested_commands_all_exist() -> None:
-    """A renamed verb must not leave stale follow-up suggestions."""
-    from codegraph.cli.suggestions import SUGGESTIONS
-
-    paths = _command_paths(app)
-
-    for source, offered in SUGGESTIONS.items():
-        assert _matches(paths, source), f"{source!r} is not a command"
-        for entry in offered:
-            assert _matches(paths, entry.split(" -- ")[0]), (
-                f"{source} suggests {entry!r}, which is not a command"
-            )
-
-
 def _matches(paths: set[str], text: str) -> bool:
     """True when *text* starts with a registered command path."""
     words = text.split()

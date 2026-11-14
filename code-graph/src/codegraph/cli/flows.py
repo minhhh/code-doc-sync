@@ -9,7 +9,7 @@ import typer
 from ..flows import get_flow_by_id, get_flows
 from ..graph import GraphStore
 from ..incremental import get_db_path
-from .common import _emit, _root
+from .common import _emit, _root, _with_hints
 from .options import FormatOption, NoColorOption, PrettyOption, RootOption
 
 flows_app = typer.Typer(
@@ -36,11 +36,14 @@ def flows_list(
     with GraphStore(db_path) as store:
         result = get_flows(store, sort_by=sort_by, limit=limit)
     _emit(
-        {
-            "status": "ok",
-            "summary": f"{len(result)} flow(s)",
-            "flows": result,
-        },
+        _with_hints(
+            {
+                "status": "ok",
+                "summary": f"{len(result)} flow(s)",
+                "flows": result,
+            },
+            "flows list",
+        ),
         output_format=output,
         pretty=pretty,
         no_color=no_color,
@@ -65,7 +68,14 @@ def flows_show(
         typer.echo(f"error: no flow with id {flow_id}", err=True)
         raise typer.Exit(code=1)
     _emit(
-        {"status": "ok", "summary": f"Flow {flow_id}: {result.get('name', '')}", "flow": result},
+        _with_hints(
+            {
+                "status": "ok",
+                "summary": f"Flow {flow_id}: {result.get('name', '')}",
+                "flow": result,
+            },
+            "flows show",
+        ),
         output_format=output,
         pretty=pretty,
         no_color=no_color,
