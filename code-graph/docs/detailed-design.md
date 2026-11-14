@@ -821,7 +821,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/graph.py::build#663be7418d50
+* flow=code-graph/src/codegraph/cli/graph.py::build#da28f41dd363
     * entry_point=code-graph/src/codegraph/cli/graph.py::build
     * criticality=0.74
     * nodes=224/458
@@ -842,7 +842,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
             * → code-graph/src/codegraph/incremental.py::_make_executor
                 * → code-graph/src/codegraph/incremental.py::_select_executor_kind
             * → code-graph/src/codegraph/incremental.py::_run_receiver_resolver
-                * → code-graph/src/codegraph/receivers.py::resolve_typed_receivers
+                * → code-graph/src/codegraph/parsing/receivers.py::resolve_typed_receivers
             * → code-graph/src/codegraph/incremental.py::_run_rescript_resolver
                 * → code-graph/src/codegraph/parsing/rescript.py::resolve_rescript_cross_module
                     * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._invalidate_cache
@@ -1371,7 +1371,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/graph.py::update#b409b84d1225
+* flow=code-graph/src/codegraph/cli/graph.py::update#0a4db43dba6d
     * entry_point=code-graph/src/codegraph/cli/graph.py::update
     * criticality=0.74
     * nodes=224/458
@@ -1392,7 +1392,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
             * → code-graph/src/codegraph/incremental.py::_make_executor
                 * → code-graph/src/codegraph/incremental.py::_select_executor_kind
             * → code-graph/src/codegraph/incremental.py::_run_receiver_resolver
-                * → code-graph/src/codegraph/receivers.py::resolve_typed_receivers
+                * → code-graph/src/codegraph/parsing/receivers.py::resolve_typed_receivers
             * → code-graph/src/codegraph/incremental.py::_run_rescript_resolver
                 * → code-graph/src/codegraph/parsing/rescript.py::resolve_rescript_cross_module
                     * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._invalidate_cache

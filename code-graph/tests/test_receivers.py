@@ -5,7 +5,7 @@ from pathlib import Path
 
 from codegraph.graph import GraphStore
 from codegraph.parsing.parser import CodeParser, EdgeInfo, NodeInfo
-from codegraph.receivers import resolve_typed_receivers
+from codegraph.parsing.receivers import resolve_typed_receivers
 from tests.support import parse_path
 
 

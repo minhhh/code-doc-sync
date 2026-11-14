@@ -18,7 +18,8 @@ them, and how queries read the result.
 │ incremental, postprocessing, flows, communities, analysis,   │
 │ changes, search, refactor                                    │
 │   graph/    store (SQLite), migrations                       │
-│   parsing/  parser, tsconfig, rescript, spring, temporal     │
+│   parsing/  parser, receivers, tsconfig, rescript, spring,   │
+│             temporal                                         │
 │   lib/      constants, repo seam (open_store, root paths)    │
 └───────────────┬──────────────────────────────────────────────┘
                 │
@@ -90,13 +91,14 @@ names:
 1. Local definition wins.
 2. Imported symbol: resolve the module to a file, then chase the export
    (including aliases and `export *` barrels for JS/TS).
-3. Otherwise keep the bare name. The receiver pass (`receivers.py`) resolves
+3. Otherwise keep the bare name. The receiver pass (`parsing/receivers.py`) resolves
    it later only when a declared receiver type names the class that declares
    the method; no name-only matching happens.
 
 `parsing/parser.py` holds the Tree-sitter extraction; the rest of the package
 fills gaps it cannot see:
 
+- `parsing/receivers.py` — member calls whose receiver type is declared.
 - `parsing/tsconfig.py` — TS path aliases and `baseUrl`.
 - `parsing/rescript.py` — ReScript module graph.
 - `parsing/spring.py` — Spring dependency injection wiring.

@@ -100,7 +100,7 @@ def _run_receiver_resolver(store: GraphStore) -> Optional[dict]:
     Swallows failures so a resolver bug can never fail a build.
     """
     try:
-        from .receivers import resolve_typed_receivers
+        from .parsing.receivers import resolve_typed_receivers
         return resolve_typed_receivers(store)
     except Exception as exc:  # noqa: BLE001 - best-effort post-pass
         logger.warning("Typed receiver resolver failed: %s", exc)

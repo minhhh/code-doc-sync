@@ -18,7 +18,7 @@ import json
 import logging
 from typing import Any
 
-from .graph import GraphStore
+from ..graph import GraphStore
 
 logger = logging.getLogger(__name__)
 
