@@ -311,9 +311,9 @@ thresholds, all scoring weights above, `_SQL_BATCH=450` for batched queries,
 
 ## Worked example: the tool's own flows
 
-The section below is generated from this repository's own graph. It is a
-`CTX-SYNC:FLOW` block, the same shape `ctx-sync` writes into `FLOWS.md`, so it
-can be refreshed in place:
+The section below is generated from this repository's own graph. Each entry is a
+`CTX-SYNC:FLOW` block, the same shape `ctx-sync` writes into `FLOWS.md`, so the
+whole section can be refreshed in place:
 
 ```bash
 code-graph build --root code-graph
@@ -324,7 +324,7 @@ code-graph export --type flows --root code-graph \
 Reading it: `criticality` is the score from the formula above, `nodes` is
 distinct nodes over total tree nodes, four spaces of indentation is one level of
 depth, and a target listed twice is a re-encountered call whose subtree was not
-walked again. Entries here are the 50 highest-scoring flows of the 101 the build
+walked again. These are the 50 highest-scoring flows of the 101 the build
 traced.
 
 <!-- CTX-SYNC:FLOW-START -->
