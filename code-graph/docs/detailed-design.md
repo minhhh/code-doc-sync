@@ -316,16 +316,17 @@ The section below is generated from this repository's own graph. Each entry is a
 whole section can be refreshed in place:
 
 ```bash
-code-graph build --root code-graph
-code-graph export --type flows --root code-graph \
+code-graph build --root .
+code-graph export --type flows --root . --limit 100 \
   | ctx-sync --type flows --root . --target code-graph/docs/detailed-design.md
 ```
 
-Reading it: `criticality` is the score from the formula above, `nodes` is
-distinct nodes over total tree nodes, four spaces of indentation is one level of
-depth, and a target listed twice is a re-encountered call whose subtree was not
-walked again. These are the 50 highest-scoring flows of the 101 the build
-traced.
+The graph is built over the repository root, and the `.code-graphignore` file
+there drops `tests/**`, so what follows is product code only. Reading it:
+`criticality` is the score from the formula above, `nodes` is distinct nodes over
+total tree nodes, four spaces of indentation is one level of depth, and a target
+listed twice is a re-encountered call whose subtree was not walked again. All
+56 traced flows are listed.
 
 <!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/cli/arch.py::arch_bridges#e1225fd80e10
@@ -1230,6 +1231,25 @@ traced.
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
+* flow=code-graph/src/codegraph/communities.py::_compute_cohesion#025414d8a439
+    * entry_point=code-graph/src/codegraph/communities.py::_compute_cohesion
+    * criticality=0.36
+    * nodes=2/2
+* code-graph/src/codegraph/communities.py::_compute_cohesion
+    * → code-graph/src/codegraph/communities.py::_compute_cohesion_batch
+<!-- CTX-SYNC:FLOW-END -->
+
+<!-- CTX-SYNC:FLOW-START -->
+* flow=code-graph/src/codegraph/graph/store.py::GraphStore.__exit__#e6d5e5de65a8
+    * entry_point=code-graph/src/codegraph/graph/store.py::GraphStore.__exit__
+    * criticality=0.16
+    * nodes=2/3
+* code-graph/src/codegraph/graph/store.py::GraphStore.__exit__
+    * → code-graph/src/codegraph/graph/store.py::GraphStore.close
+        * → code-graph/src/codegraph/graph/store.py::GraphStore.close
+<!-- CTX-SYNC:FLOW-END -->
+
+<!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/graph/store.py::GraphStore.__init__#e4dad727e9bc
     * entry_point=code-graph/src/codegraph/graph/store.py::GraphStore.__init__
     * criticality=0.445
@@ -1296,6 +1316,26 @@ traced.
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
+* flow=code-graph/src/codegraph/graph/store.py::GraphStore.get_node_by_id#582996b611b6
+    * entry_point=code-graph/src/codegraph/graph/store.py::GraphStore.get_node_by_id
+    * criticality=0.33
+    * nodes=3/3
+* code-graph/src/codegraph/graph/store.py::GraphStore.get_node_by_id
+    * → code-graph/src/codegraph/graph/store.py::GraphStore._row_to_node
+        * → code-graph/src/codegraph/graph/store.py::GraphNode
+<!-- CTX-SYNC:FLOW-END -->
+
+<!-- CTX-SYNC:FLOW-START -->
+* flow=code-graph/src/codegraph/graph/store.py::GraphStore.get_nodes_by_community_id#0452403d1e43
+    * entry_point=code-graph/src/codegraph/graph/store.py::GraphStore.get_nodes_by_community_id
+    * criticality=0.33
+    * nodes=3/3
+* code-graph/src/codegraph/graph/store.py::GraphStore.get_nodes_by_community_id
+    * → code-graph/src/codegraph/graph/store.py::GraphStore._row_to_node
+        * → code-graph/src/codegraph/graph/store.py::GraphNode
+<!-- CTX-SYNC:FLOW-END -->
+
+<!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/graph/store.py::GraphStore.get_nodes_by_kind#edf7d884b918
     * entry_point=code-graph/src/codegraph/graph/store.py::GraphStore.get_nodes_by_kind
     * criticality=0.37
@@ -1316,6 +1356,16 @@ traced.
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
+* flow=code-graph/src/codegraph/graph/store.py::GraphStore.get_stats#4393722a59f7
+    * entry_point=code-graph/src/codegraph/graph/store.py::GraphStore.get_stats
+    * criticality=0.36
+    * nodes=3/3
+* code-graph/src/codegraph/graph/store.py::GraphStore.get_stats
+    * → code-graph/src/codegraph/graph/store.py::GraphStats
+    * → code-graph/src/codegraph/graph/store.py::GraphStore.get_metadata
+<!-- CTX-SYNC:FLOW-END -->
+
+<!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/graph/store.py::GraphStore.get_subgraph#3e85538fbcb7
     * entry_point=code-graph/src/codegraph/graph/store.py::GraphStore.get_subgraph
     * criticality=0.38
@@ -1330,6 +1380,15 @@ traced.
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
+* flow=code-graph/src/codegraph/graph/store.py::GraphStore.get_transitive_tests#7cbbab1e5a6f
+    * entry_point=code-graph/src/codegraph/graph/store.py::GraphStore.get_transitive_tests
+    * criticality=0.36
+    * nodes=2/2
+* code-graph/src/codegraph/graph/store.py::GraphStore.get_transitive_tests
+    * → code-graph/src/codegraph/graph/store.py::GraphStore._node_dict
+<!-- CTX-SYNC:FLOW-END -->
+
+<!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/graph/store.py::GraphStore.load_flow_adjacency#71c3c1ba8646
     * entry_point=code-graph/src/codegraph/graph/store.py::GraphStore.load_flow_adjacency
     * criticality=0.37
@@ -1338,6 +1397,16 @@ traced.
     * → code-graph/src/codegraph/graph/store.py::FlowAdjacency
     * → code-graph/src/codegraph/graph/store.py::GraphStore._row_to_node
         * → code-graph/src/codegraph/graph/store.py::GraphNode
+<!-- CTX-SYNC:FLOW-END -->
+
+<!-- CTX-SYNC:FLOW-START -->
+* flow=code-graph/src/codegraph/graph/store.py::GraphStore.resolve_bare_call_targets#77d8a2183d2b
+    * entry_point=code-graph/src/codegraph/graph/store.py::GraphStore.resolve_bare_call_targets
+    * criticality=0.36
+    * nodes=2/3
+* code-graph/src/codegraph/graph/store.py::GraphStore.resolve_bare_call_targets
+    * → code-graph/src/codegraph/graph/store.py::GraphStore.commit
+        * → code-graph/src/codegraph/graph/store.py::GraphStore.commit
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
@@ -1358,6 +1427,16 @@ traced.
 * code-graph/src/codegraph/graph/store.py::GraphStore.search_nodes
     * → code-graph/src/codegraph/graph/store.py::GraphStore._row_to_node
         * → code-graph/src/codegraph/graph/store.py::GraphNode
+<!-- CTX-SYNC:FLOW-END -->
+
+<!-- CTX-SYNC:FLOW-START -->
+* flow=code-graph/src/codegraph/graph/store.py::GraphStore.set_metadata#b112ad9db8c8
+    * entry_point=code-graph/src/codegraph/graph/store.py::GraphStore.set_metadata
+    * criticality=0.2
+    * nodes=2/3
+* code-graph/src/codegraph/graph/store.py::GraphStore.set_metadata
+    * → code-graph/src/codegraph/graph/store.py::GraphStore.commit
+        * → code-graph/src/codegraph/graph/store.py::GraphStore.commit
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
@@ -1441,6 +1520,16 @@ traced.
     * → code-graph/src/codegraph/languages/tsconfig.py::TsconfigResolver._match_and_probe
         * → code-graph/src/codegraph/languages/tsconfig.py::_match_pattern
         * → code-graph/src/codegraph/languages/tsconfig.py::_probe_path
+<!-- CTX-SYNC:FLOW-END -->
+
+<!-- CTX-SYNC:FLOW-START -->
+* flow=code-graph/src/codegraph/migrations.py::_migrate_v1#7236b42b1eff
+    * entry_point=code-graph/src/codegraph/migrations.py::_migrate_v1
+    * criticality=0.36
+    * nodes=3/3
+* code-graph/src/codegraph/migrations.py::_migrate_v1
+    * → code-graph/src/codegraph/migrations.py::_has_column
+    * → code-graph/src/codegraph/migrations.py::_table_exists
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
@@ -1768,49 +1857,6 @@ traced.
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/tests/fixtures/caller_example.py::setup_and_run#82967ba10619
-    * entry_point=code-graph/tests/fixtures/caller_example.py::setup_and_run
-    * criticality=0.4517
-    * nodes=3/3
-* code-graph/tests/fixtures/caller_example.py::setup_and_run
-    * → code-graph/tests/fixtures/sample_python.py::create_auth_service
-        * → code-graph/tests/fixtures/sample_python.py::AuthService
-<!-- CTX-SYNC:FLOW-END -->
-
-<!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/tests/fixtures/sample.m::main#d6f35c82f955
-    * entry_point=code-graph/tests/fixtures/sample.m::main
-    * criticality=0.37
-    * nodes=5/5
-* code-graph/tests/fixtures/sample.m::main
-    * → code-graph/tests/fixtures/sample.m::Calculator.add
-        * → code-graph/tests/fixtures/sample.m::Calculator.logResult
-    * → code-graph/tests/fixtures/sample.m::Calculator.reset
-    * → code-graph/tests/fixtures/sample.m::Calculator.sharedCalculator
-<!-- CTX-SYNC:FLOW-END -->
-
-<!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/tests/fixtures/sample_python.py::guarded_process#4de3f54641b8
-    * entry_point=code-graph/tests/fixtures/sample_python.py::guarded_process
-    * criticality=0.3675
-    * nodes=4/4
-* code-graph/tests/fixtures/sample_python.py::guarded_process
-    * → code-graph/tests/fixtures/sample_python.py::process_request
-        * → code-graph/tests/fixtures/sample_python.py::AuthService.authenticate
-            * → code-graph/tests/fixtures/sample_python.py::AuthService._validate_token
-<!-- CTX-SYNC:FLOW-END -->
-
-<!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/tests/fixtures/sample_typescript.ts::handleGetUser#4a323adbd45e
-    * entry_point=code-graph/tests/fixtures/sample_typescript.ts::handleGetUser
-    * criticality=0.37
-    * nodes=3/3
-* code-graph/tests/fixtures/sample_typescript.ts::handleGetUser
-    * → code-graph/tests/fixtures/sample_typescript.ts::UserService.getUser
-        * → code-graph/tests/fixtures/sample_typescript.ts::UserRepository.findById
-<!-- CTX-SYNC:FLOW-END -->
-
-<!-- CTX-SYNC:FLOW-START -->
 * flow=ctx-sync/src/ctxsync/cli.py::sync#1cebb6e80c07
     * entry_point=ctx-sync/src/ctxsync/cli.py::sync
     * criticality=0.7
@@ -1890,6 +1936,15 @@ traced.
         * → ctx-sync/src/ctxsync/markdown.py::render_new_document
             * → ctx-sync/src/ctxsync/markdown.py::render_block
         * → ctx-sync/src/ctxsync/model.py::SyncResult
+<!-- CTX-SYNC:FLOW-END -->
+
+<!-- CTX-SYNC:FLOW-START -->
+* flow=ctx-sync/src/ctxsync/flows_doc.py::parse_blocks#8b860d2805e9
+    * entry_point=ctx-sync/src/ctxsync/flows_doc.py::parse_blocks
+    * criticality=0.36
+    * nodes=2/2
+* ctx-sync/src/ctxsync/flows_doc.py::parse_blocks
+    * → ctx-sync/src/ctxsync/flows_doc.py::_parse_meta
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
