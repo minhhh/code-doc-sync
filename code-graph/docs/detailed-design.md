@@ -256,6 +256,13 @@ exclusions:
   through the base reference.
 - Classes with at least one live member.
 
+A node passed as a value counts as live. `REFERENCES` edges come from
+positions where a function is named but never called with parentheses: object
+literal values, array elements, property assignments, bare arguments, and
+Python keyword arguments such as `Option(callback=_version_callback)`. A
+callback registered through a keyword argument would otherwise look exactly
+like a function nobody calls.
+
 The parser stores decorators on the node as `extra.decorators`, for functions,
 tests, and classes. Without that field the allowlist could never match, which is
 why every decorated node used to look dead. The same field feeds

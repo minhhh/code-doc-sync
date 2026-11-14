@@ -714,7 +714,10 @@ class TestCodeParser:
         nodes, edges = self.parser.parse_file(FIXTURES / "sample_callback_refs.py")
         refs = [e for e in edges if e.kind == "REFERENCES"]
         ref_target_names = {e.target.rsplit("::", 1)[-1] for e in refs}
-        for callback in ("executor_callback", "filter_callback", "map_callback"):
+        for callback in (
+            "executor_callback", "filter_callback", "map_callback",
+            "keyword_callback",
+        ):
             assert callback in ref_target_names, (
                 f"Expected REFERENCES edge to {callback}, got targets: "
                 f"{ref_target_names}"
@@ -741,6 +744,7 @@ class TestCodeParser:
                 dead_names = {d["name"] for d in dead}
                 for callback in (
                     "executor_callback", "filter_callback", "map_callback",
+                    "keyword_callback",
                 ):
                     assert callback not in dead_names, (
                         f"{callback} was flagged as dead but is used as a "

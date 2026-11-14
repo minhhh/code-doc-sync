@@ -5535,15 +5535,26 @@ class CodeParser:
         import_map: dict[str, str],
         defined_names: set[str],
     ) -> None:
-        """Extract REFERENCES from identifier arguments (callbacks)."""
+        """Extract REFERENCES from identifier arguments (callbacks).
+
+        Python keyword arguments count too: ``Option(callback=handle)`` passes
+        ``handle`` by reference, so the callee is only reachable through this
+        edge.
+        """
         for ch in args_node.children:
-            if ch.type == "identifier":
-                name = ch.text.decode("utf-8", errors="replace")
-                self._emit_reference_if_known(
-                    name, language, file_path, caller, edges,
-                    import_map, defined_names,
-                    line=ch.start_point[0] + 1,
-                )
+            target = ch
+            if ch.type == "keyword_argument":
+                target = ch.child_by_field_name("value")
+                if target is None:
+                    continue
+            if target.type != "identifier":
+                continue
+            name = target.text.decode("utf-8", errors="replace")
+            self._emit_reference_if_known(
+                name, language, file_path, caller, edges,
+                import_map, defined_names,
+                line=target.start_point[0] + 1,
+            )
 
     def _extract_solidity_constructs(
         self,

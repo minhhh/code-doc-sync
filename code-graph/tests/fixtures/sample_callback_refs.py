@@ -33,3 +33,11 @@ def trigger_filter():
 def trigger_map():
     items = [1, 2, 3]
     return list(map(map_callback, items))
+
+
+def keyword_callback(value):
+    return value
+
+
+def register_with_keyword(configure):
+    return configure(callback=keyword_callback)
