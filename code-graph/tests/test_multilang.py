@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from codegraph.parser import CodeParser
+from tests.support import parse_path
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -12,7 +13,7 @@ FIXTURES = Path(__file__).parent / "fixtures"
 class TestGoParsing:
     def setup_method(self):
         self.parser = CodeParser()
-        self.nodes, self.edges = self.parser.parse_file(FIXTURES / "sample_go.go")
+        self.nodes, self.edges = parse_path(self.parser, FIXTURES / "sample_go.go")
 
     def test_detects_language(self):
         assert self.parser.detect_language(Path("main.go")) == "go"
@@ -86,7 +87,7 @@ class TestGoParsing:
 class TestRustParsing:
     def setup_method(self):
         self.parser = CodeParser()
-        self.nodes, self.edges = self.parser.parse_file(FIXTURES / "sample_rust.rs")
+        self.nodes, self.edges = parse_path(self.parser, FIXTURES / "sample_rust.rs")
 
     def test_detects_language(self):
         assert self.parser.detect_language(Path("lib.rs")) == "rust"
@@ -137,7 +138,7 @@ class TestRustParsing:
 class TestJavaParsing:
     def setup_method(self):
         self.parser = CodeParser()
-        self.nodes, self.edges = self.parser.parse_file(FIXTURES / "SampleJava.java")
+        self.nodes, self.edges = parse_path(self.parser, FIXTURES / "SampleJava.java")
 
     def test_detects_language(self):
         assert self.parser.detect_language(Path("Main.java")) == "java"
@@ -231,7 +232,7 @@ class TestJavaImportResolution:
         )
 
         parser = CodeParser()
-        _, edges = parser.parse_file(svc / "App.java")
+        _, edges = parse_path(parser, svc / "App.java")
         imports = [e for e in edges if e.kind == "IMPORTS_FROM"]
         assert len(imports) == 1
         assert imports[0].target == str((auth / "User.java").resolve())
@@ -239,7 +240,7 @@ class TestJavaImportResolution:
     def test_jdk_import_stays_unresolved(self):
         """JDK imports have no local file and remain as raw strings."""
         parser = CodeParser()
-        _, edges = parser.parse_file(FIXTURES / "SampleJava.java")
+        _, edges = parse_path(parser, FIXTURES / "SampleJava.java")
         imports = [e for e in edges if e.kind == "IMPORTS_FROM"]
         # All imports in SampleJava.java are java.util.* (JDK)
         for e in imports:
@@ -264,7 +265,7 @@ class TestJavaImportResolution:
         )
 
         parser = CodeParser()
-        _, edges = parser.parse_file(app_dir / "App.java")
+        _, edges = parse_path(parser, app_dir / "App.java")
         imports = [e for e in edges if e.kind == "IMPORTS_FROM"]
         assert len(imports) == 1
         assert imports[0].target == str((pkg / "Helper.java").resolve())
@@ -280,7 +281,7 @@ class TestJavaImportResolution:
         )
 
         parser = CodeParser()
-        _, edges = parser.parse_file(app_dir / "App.java")
+        _, edges = parse_path(parser, app_dir / "App.java")
         imports = [e for e in edges if e.kind == "IMPORTS_FROM"]
         assert len(imports) == 1
         assert imports[0].target == "java.util.*"
@@ -289,7 +290,7 @@ class TestJavaImportResolution:
 class TestCParsing:
     def setup_method(self):
         self.parser = CodeParser()
-        self.nodes, self.edges = self.parser.parse_file(FIXTURES / "sample.c")
+        self.nodes, self.edges = parse_path(self.parser, FIXTURES / "sample.c")
 
     def test_detects_language(self):
         assert self.parser.detect_language(Path("main.c")) == "c"
@@ -315,7 +316,7 @@ class TestCParsing:
 class TestCppParsing:
     def setup_method(self):
         self.parser = CodeParser()
-        self.nodes, self.edges = self.parser.parse_file(FIXTURES / "sample.cpp")
+        self.nodes, self.edges = parse_path(self.parser, FIXTURES / "sample.cpp")
 
     def test_detects_language(self):
         assert self.parser.detect_language(Path("main.cpp")) == "cpp"
@@ -339,7 +340,7 @@ class TestCppParsing:
 class TestHhParsing:
     def setup_method(self):
         self.parser = CodeParser()
-        self.nodes, self.edges = self.parser.parse_file(FIXTURES / "sample.hh")
+        self.nodes, self.edges = parse_path(self.parser, FIXTURES / "sample.hh")
 
     def test_detects_language(self):
         assert self.parser.detect_language(Path("types.hh")) == "cpp"
@@ -373,7 +374,7 @@ def _has_csharp_parser():
 class TestCSharpParsing:
     def setup_method(self):
         self.parser = CodeParser()
-        self.nodes, self.edges = self.parser.parse_file(FIXTURES / "Sample.cs")
+        self.nodes, self.edges = parse_path(self.parser, FIXTURES / "Sample.cs")
 
     def test_detects_language(self):
         assert self.parser.detect_language(Path("Program.cs")) == "csharp"
@@ -393,7 +394,7 @@ class TestCSharpParsing:
 class TestRubyParsing:
     def setup_method(self):
         self.parser = CodeParser()
-        self.nodes, self.edges = self.parser.parse_file(FIXTURES / "sample.rb")
+        self.nodes, self.edges = parse_path(self.parser, FIXTURES / "sample.rb")
 
     def test_detects_language(self):
         assert self.parser.detect_language(Path("app.rb")) == "ruby"
@@ -412,7 +413,7 @@ class TestRubyParsing:
 class TestPHPParsing:
     def setup_method(self):
         self.parser = CodeParser()
-        self.nodes, self.edges = self.parser.parse_file(FIXTURES / "sample.php")
+        self.nodes, self.edges = parse_path(self.parser, FIXTURES / "sample.php")
 
     def test_detects_language(self):
         assert self.parser.detect_language(Path("index.php")) == "php"
@@ -458,7 +459,7 @@ class TestPHPParsing:
 class TestKotlinParsing:
     def setup_method(self):
         self.parser = CodeParser()
-        self.nodes, self.edges = self.parser.parse_file(FIXTURES / "sample.kt")
+        self.nodes, self.edges = parse_path(self.parser, FIXTURES / "sample.kt")
 
     def test_detects_language(self):
         assert self.parser.detect_language(Path("Main.kt")) == "kotlin"
@@ -485,7 +486,7 @@ class TestKotlinParsing:
 class TestSwiftParsing:
     def setup_method(self):
         self.parser = CodeParser()
-        self.nodes, self.edges = self.parser.parse_file(FIXTURES / "sample.swift")
+        self.nodes, self.edges = parse_path(self.parser, FIXTURES / "sample.swift")
 
     def test_detects_language(self):
         assert self.parser.detect_language(Path("App.swift")) == "swift"
@@ -553,7 +554,7 @@ class TestSwiftParsing:
 class TestScalaParsing:
     def setup_method(self):
         self.parser = CodeParser()
-        self.nodes, self.edges = self.parser.parse_file(FIXTURES / "sample.scala")
+        self.nodes, self.edges = parse_path(self.parser, FIXTURES / "sample.scala")
 
     def test_detects_language(self):
         assert self.parser.detect_language(Path("Main.scala")) == "scala"
@@ -600,7 +601,7 @@ class TestScalaParsing:
 class TestSolidityParsing:
     def setup_method(self):
         self.parser = CodeParser()
-        self.nodes, self.edges = self.parser.parse_file(FIXTURES / "sample.sol")
+        self.nodes, self.edges = parse_path(self.parser, FIXTURES / "sample.sol")
 
     def test_detects_language(self):
         assert self.parser.detect_language(Path("Vault.sol")) == "solidity"
@@ -796,7 +797,7 @@ class TestSolidityParsing:
 class TestVueParsing:
     def setup_method(self):
         self.parser = CodeParser()
-        self.nodes, self.edges = self.parser.parse_file(FIXTURES / "sample_vue.vue")
+        self.nodes, self.edges = parse_path(self.parser, FIXTURES / "sample_vue.vue")
 
     def test_detects_language(self):
         assert self.parser.detect_language(Path("App.vue")) == "vue"
@@ -830,7 +831,7 @@ class TestVueParsing:
 class TestRParsing:
     def setup_method(self):
         self.parser = CodeParser()
-        self.nodes, self.edges = self.parser.parse_file(FIXTURES / "sample.R")
+        self.nodes, self.edges = parse_path(self.parser, FIXTURES / "sample.R")
 
     def test_detects_language(self):
         assert self.parser.detect_language(Path("script.r")) == "r"
@@ -886,7 +887,7 @@ class TestRParsing:
 
     def test_detects_test_functions(self):
         parser = CodeParser()
-        nodes, _edges = parser.parse_file(FIXTURES / "test_sample.R")
+        nodes, _edges = parse_path(parser, FIXTURES / "test_sample.R")
         file_node = [n for n in nodes if n.kind == "File"][0]
         assert file_node.is_test is True
         test_funcs = [n for n in nodes if n.is_test and n.kind == "Test"]
@@ -897,7 +898,7 @@ class TestRParsing:
 class TestPerlParsing:
     def setup_method(self):
         self.parser = CodeParser()
-        self.nodes, self.edges = self.parser.parse_file(FIXTURES / "sample.pl")
+        self.nodes, self.edges = parse_path(self.parser, FIXTURES / "sample.pl")
 
     def test_detects_language(self):
         assert self.parser.detect_language(Path("script.pl")) == "perl"
@@ -936,7 +937,7 @@ class TestPerlParsing:
 class TestXSParsing:
     def setup_method(self):
         self.parser = CodeParser()
-        self.nodes, self.edges = self.parser.parse_file(FIXTURES / "sample.xs")
+        self.nodes, self.edges = parse_path(self.parser, FIXTURES / "sample.xs")
 
     def test_detects_language(self):
         assert self.parser.detect_language(Path("MyModule.xs")) == "c"
@@ -971,7 +972,7 @@ class TestXSParsing:
 class TestLuaParsing:
     def setup_method(self):
         self.parser = CodeParser()
-        self.nodes, self.edges = self.parser.parse_file(FIXTURES / "sample.lua")
+        self.nodes, self.edges = parse_path(self.parser, FIXTURES / "sample.lua")
 
     def test_detects_language(self):
         assert self.parser.detect_language(Path("init.lua")) == "lua"
@@ -1093,7 +1094,7 @@ class TestLuaParsing:
 class TestLuauParsing:
     def setup_method(self):
         self.parser = CodeParser()
-        self.nodes, self.edges = self.parser.parse_file(FIXTURES / "sample.luau")
+        self.nodes, self.edges = parse_path(self.parser, FIXTURES / "sample.luau")
 
     def test_detects_language(self):
         assert self.parser.detect_language(Path("init.luau")) == "luau"
@@ -1208,7 +1209,7 @@ class TestObjectiveCParsing:
 
     def setup_method(self):
         self.parser = CodeParser()
-        self.nodes, self.edges = self.parser.parse_file(FIXTURES / "sample.m")
+        self.nodes, self.edges = parse_path(self.parser, FIXTURES / "sample.m")
 
     def test_detects_language(self):
         assert self.parser.detect_language(Path("foo.m")) == "objc"
@@ -1267,7 +1268,7 @@ class TestBashParsing:
 
     def setup_method(self):
         self.parser = CodeParser()
-        self.nodes, self.edges = self.parser.parse_file(FIXTURES / "sample.sh")
+        self.nodes, self.edges = parse_path(self.parser, FIXTURES / "sample.sh")
 
     def test_detects_language(self):
         assert self.parser.detect_language(Path("build.sh")) == "bash"
@@ -1284,7 +1285,7 @@ class TestBashParsing:
         ksh_copy = tmp_path / "legacy.ksh"
         ksh_copy.write_text(fixture_source, encoding="utf-8")
 
-        ksh_nodes, ksh_edges = self.parser.parse_file(ksh_copy)
+        ksh_nodes, ksh_edges = parse_path(self.parser, ksh_copy)
 
         # Language tagging: every node must be "bash".
         assert ksh_nodes, "parser produced zero nodes for .ksh file"
@@ -1366,7 +1367,7 @@ class TestElixirParsing:
 
     def setup_method(self):
         self.parser = CodeParser()
-        self.nodes, self.edges = self.parser.parse_file(FIXTURES / "sample.ex")
+        self.nodes, self.edges = parse_path(self.parser, FIXTURES / "sample.ex")
 
     def test_detects_language(self):
         assert self.parser.detect_language(Path("lib.ex")) == "elixir"
@@ -1426,7 +1427,7 @@ class TestElixirParsing:
 class TestGDScriptParsing:
     def setup_method(self):
         self.parser = CodeParser()
-        self.nodes, self.edges = self.parser.parse_file(FIXTURES / "sample.gd")
+        self.nodes, self.edges = parse_path(self.parser, FIXTURES / "sample.gd")
 
     def test_detects_language(self):
         assert self.parser.detect_language(Path("player.gd")) == "gdscript"
@@ -1504,7 +1505,7 @@ class TestGDScriptParsing:
 class TestJuliaParsing:
     def setup_method(self):
         self.parser = CodeParser()
-        self.nodes, self.edges = self.parser.parse_file(FIXTURES / "sample.jl")
+        self.nodes, self.edges = parse_path(self.parser, FIXTURES / "sample.jl")
 
     def test_detects_language(self):
         assert self.parser.detect_language(Path("foo.jl")) == "julia"
@@ -1665,7 +1666,7 @@ class TestJuliaParsing:
 class TestRescriptParser:
     def setup_method(self):
         self.parser = CodeParser()
-        self.nodes, self.edges = self.parser.parse_file(FIXTURES / "sample.res")
+        self.nodes, self.edges = parse_path(self.parser, FIXTURES / "sample.res")
 
     def test_detects_language_for_res_and_resi(self):
         assert self.parser.detect_language(Path("lib.res")) == "rescript"
@@ -1756,7 +1757,7 @@ class TestRescriptParser:
 class TestRescriptInterfaceParser:
     def setup_method(self):
         self.parser = CodeParser()
-        self.nodes, self.edges = self.parser.parse_file(FIXTURES / "sample.resi")
+        self.nodes, self.edges = parse_path(self.parser, FIXTURES / "sample.resi")
 
     def test_file_flagged_as_interface(self):
         file_node = next(n for n in self.nodes if n.kind == "File")
@@ -1796,7 +1797,7 @@ class TestRescriptEdgeCases:
 
     def setup_method(self):
         self.parser = CodeParser()
-        self.nodes, self.edges = self.parser.parse_file(FIXTURES / "sample.res")
+        self.nodes, self.edges = parse_path(self.parser, FIXTURES / "sample.res")
 
     def test_duplicate_open_produces_single_import_edge(self):
         # sample.res has `open Belt` twice — should emit only one edge.
@@ -1988,7 +1989,7 @@ class TestNixParsing:
         # The non-flake fixture retains its actual path; it's used to verify
         # the flake-input branch does *not* fire on non-flake files.
         module_path = FIXTURES / "sample_module.nix"
-        self.module_nodes, self.module_edges = self.parser.parse_file(module_path)
+        self.module_nodes, self.module_edges = parse_path(self.parser, module_path)
 
     def test_detects_language(self):
         assert self.parser.detect_language(Path("flake.nix")) == "nix"
@@ -2057,7 +2058,7 @@ class TestSpringDIParsing:
 
     def setup_method(self):
         self.parser = CodeParser()
-        self.nodes, self.edges = self.parser.parse_file(FIXTURES / "SpringDI.java")
+        self.nodes, self.edges = parse_path(self.parser, FIXTURES / "SpringDI.java")
 
     def test_detects_spring_stereotype_on_repository(self):
         classes = {n.name: n for n in self.nodes if n.kind == "Class"}
@@ -2242,7 +2243,7 @@ class TestTemporalParsing:
 
     def setup_method(self):
         self.parser = CodeParser()
-        self.nodes, self.edges = self.parser.parse_file(FIXTURES / "TemporalWorkflow.java")
+        self.nodes, self.edges = parse_path(self.parser, FIXTURES / "TemporalWorkflow.java")
 
     def test_workflow_interface_gets_temporal_role(self):
         classes = {n.name: n for n in self.nodes if n.kind == "Class"}
@@ -2377,7 +2378,7 @@ class TestKafkaParsing:
 
     def setup_method(self):
         self.parser = CodeParser()
-        self.nodes, self.edges = self.parser.parse_file(FIXTURES / "KafkaPatterns.java")
+        self.nodes, self.edges = parse_path(self.parser, FIXTURES / "KafkaPatterns.java")
 
     def test_kafka_listener_annotation_emits_consumes_edge(self):
         consumes = [e for e in self.edges if e.kind == "CONSUMES"]
@@ -2447,7 +2448,7 @@ def _has_verilog_parser():
 class TestVerilogParsing:
     def setup_method(self):
         self.parser = CodeParser()
-        self.nodes, self.edges = self.parser.parse_file(FIXTURES / "sample.sv")
+        self.nodes, self.edges = parse_path(self.parser, FIXTURES / "sample.sv")
 
     def test_detects_language(self):
         assert self.parser.detect_language(Path("top.sv")) == "verilog"
@@ -2508,7 +2509,7 @@ class TestVerilogParsing:
 class TestSQLParsing:
     def setup_method(self):
         self.parser = CodeParser()
-        self.nodes, self.edges = self.parser.parse_file(FIXTURES / "sample.sql")
+        self.nodes, self.edges = parse_path(self.parser, FIXTURES / "sample.sql")
 
     def test_detects_language(self):
         assert self.parser.detect_language(Path("schema.sql")) == "sql"
@@ -2566,7 +2567,7 @@ class TestPascalParsing:
 
     def setup_method(self):
         self.parser = CodeParser()
-        self.nodes, self.edges = self.parser.parse_file(
+        self.nodes, self.edges = parse_path(self.parser, 
             FIXTURES / "sample_pascal.pas"
         )
 
@@ -2636,6 +2637,6 @@ class TestPascalParsing:
         )
 
         parser = CodeParser()
-        _, edges = parser.parse_file(consumer)
+        _, edges = parse_path(parser, consumer)
         targets = {e.target for e in edges if e.kind == "IMPORTS_FROM"}
         assert str(library) in targets

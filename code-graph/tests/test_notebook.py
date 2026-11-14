@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from codegraph.parser import _SQL_TABLE_RE, CodeParser
+from tests.support import parse_path
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -13,7 +14,7 @@ FIXTURES = Path(__file__).parent / "fixtures"
 class TestNotebookParsing:
     def setup_method(self):
         self.parser = CodeParser()
-        self.nodes, self.edges = self.parser.parse_file(
+        self.nodes, self.edges = parse_path(self.parser, 
             FIXTURES / "sample_notebook.ipynb",
         )
 
@@ -162,7 +163,7 @@ class TestSqlTableExtraction:
 class TestDatabricksNotebookParsing:
     def setup_method(self):
         self.parser = CodeParser()
-        self.nodes, self.edges = self.parser.parse_file(
+        self.nodes, self.edges = parse_path(self.parser, 
             FIXTURES / "sample_databricks_notebook.ipynb",
         )
 
@@ -206,7 +207,7 @@ class TestDatabricksNotebookParsing:
 class TestDatabricksPyNotebook:
     def setup_method(self):
         self.parser = CodeParser()
-        self.nodes, self.edges = self.parser.parse_file(
+        self.nodes, self.edges = parse_path(self.parser, 
             FIXTURES / "sample_databricks_export.py",
         )
 

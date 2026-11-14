@@ -208,7 +208,8 @@ Tests use `.git` directories (or `.code-graph`) to satisfy
 `tests/test_cli.py` does.
 
 For parser tests, construct `CodeParser()` directly and assert on
-`NodeInfo`/`EdgeInfo`, or use `parser.parse_file(path)`.
+`NodeInfo`/`EdgeInfo`, or call `tests/support.py::parse_path(parser, path)`,
+which reads the bytes and passes them to `parse_bytes` the way the build does.
 For store tests, open `GraphStore(db_path)` and use
 `store_file_nodes_edges` / `upsert_node` / `upsert_edge`.
 

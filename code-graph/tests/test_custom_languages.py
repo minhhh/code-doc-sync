@@ -21,6 +21,7 @@ from codegraph.parser import (
     CodeParser,
     _builtin_language_names,
 )
+from tests.support import parse_path
 
 BUILTIN_LANGUAGES = _builtin_language_names()
 
@@ -249,7 +250,7 @@ class TestParserIntegration:
     def test_e2e_nodes_and_edges(self, tmp_path):
         repo, src = self._repo(tmp_path)
         parser = CodeParser(repo)
-        nodes, edges = parser.parse_file(src)
+        nodes, edges = parse_path(parser, src)
 
         files = [n for n in nodes if n.kind == "File"]
         assert len(files) == 1
@@ -282,7 +283,7 @@ class TestParserIntegration:
 
     def test_e2e_parse_without_config_yields_nothing(self, tmp_path):
         _repo, src = self._repo(tmp_path)
-        nodes, edges = CodeParser().parse_file(src)
+        nodes, edges = parse_path(CodeParser(), src)
         assert nodes == []
         assert edges == []
 

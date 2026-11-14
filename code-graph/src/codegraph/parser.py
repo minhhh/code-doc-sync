@@ -939,14 +939,6 @@ class CodeParser:
 
         return SHEBANG_INTERPRETER_TO_LANGUAGE.get(interpreter)
 
-    def parse_file(self, path: Path) -> tuple[list[NodeInfo], list[EdgeInfo]]:
-        """Parse a single file and return extracted nodes and edges."""
-        try:
-            source = path.read_bytes()
-        except (OSError, PermissionError):
-            return [], []
-        return self.parse_bytes(path, source)
-
     def parse_bytes(self, path: Path, source: bytes) -> tuple[list[NodeInfo], list[EdgeInfo]]:
         """Parse pre-read bytes and return extracted nodes and edges.
 

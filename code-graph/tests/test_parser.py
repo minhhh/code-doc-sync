@@ -3,7 +3,10 @@
 import tempfile
 from pathlib import Path
 
+import pytest
+
 from codegraph.parser import CodeParser
+from tests.support import parse_path
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -64,7 +67,7 @@ class TestCodeParser:
     def test_single_print_statement(self):
         """A file with only a single top-level call should be parsed correctly."""
         fixture_path = FIXTURES / "single_print.py"
-        nodes, edges = self.parser.parse_file(fixture_path)
+        nodes, edges = parse_path(self.parser, fixture_path)
 
         # 1. Verify File node exists
         file_nodes = [n for n in nodes if n.kind == "File"]
@@ -200,7 +203,7 @@ class TestCodeParser:
         )
         p = self._write_shebang_file(tmp_path, "deploy", script)
 
-        nodes, edges = self.parser.parse_file(p)
+        nodes, edges = parse_path(self.parser, p)
 
         # We at least got the File node plus both functions.
         assert len(nodes) >= 3
@@ -212,7 +215,7 @@ class TestCodeParser:
             assert n.language == "bash"
 
     def test_parse_python_file(self):
-        nodes, edges = self.parser.parse_file(FIXTURES / "sample_python.py")
+        nodes, edges = parse_path(self.parser, FIXTURES / "sample_python.py")
 
         # Should have File node
         file_nodes = [n for n in nodes if n.kind == "File"]
@@ -233,7 +236,7 @@ class TestCodeParser:
         assert "process_request" in func_names
 
     def test_parse_python_edges(self):
-        nodes, edges = self.parser.parse_file(FIXTURES / "sample_python.py")
+        nodes, edges = parse_path(self.parser, FIXTURES / "sample_python.py")
 
         edge_kinds = {e.kind for e in edges}
         assert "CONTAINS" in edge_kinds
@@ -246,14 +249,14 @@ class TestCodeParser:
         assert any("AuthService" in e.source and "BaseService" in e.target for e in inherits)
 
     def test_parse_python_imports(self):
-        nodes, edges = self.parser.parse_file(FIXTURES / "sample_python.py")
+        nodes, edges = parse_path(self.parser, FIXTURES / "sample_python.py")
         imports = [e for e in edges if e.kind == "IMPORTS_FROM"]
         import_targets = {e.target for e in imports}
         assert "os" in import_targets
         assert "pathlib" in import_targets
 
     def test_parse_python_calls(self):
-        nodes, edges = self.parser.parse_file(FIXTURES / "sample_python.py")
+        nodes, edges = parse_path(self.parser, FIXTURES / "sample_python.py")
         calls = [e for e in edges if e.kind == "CALLS"]
         call_targets = {e.target for e in calls}
         # _resolve_call_targets qualifies same-file definitions
@@ -261,7 +264,7 @@ class TestCodeParser:
         assert any("authenticate" in t for t in call_targets)
 
     def test_parse_typescript_file(self):
-        nodes, edges = self.parser.parse_file(FIXTURES / "sample_typescript.ts")
+        nodes, edges = parse_path(self.parser, FIXTURES / "sample_typescript.ts")
 
         classes = [n for n in nodes if n.kind == "Class"]
         class_names = {c.name for c in classes}
@@ -273,7 +276,7 @@ class TestCodeParser:
         assert "findById" in func_names or "handleGetUser" in func_names
 
     def test_parse_test_file(self):
-        nodes, edges = self.parser.parse_file(FIXTURES / "test_sample.py")
+        nodes, edges = parse_path(self.parser, FIXTURES / "test_sample.py")
 
         # Test functions should be detected
         tests = [n for n in nodes if n.kind == "Test"]
@@ -283,7 +286,7 @@ class TestCodeParser:
 
     def test_calls_edge_same_file_resolution(self):
         """Call targets defined in the same file should be qualified."""
-        nodes, edges = self.parser.parse_file(FIXTURES / "sample_python.py")
+        nodes, edges = parse_path(self.parser, FIXTURES / "sample_python.py")
         calls = [e for e in edges if e.kind == "CALLS"]
         file_path = str(FIXTURES / "sample_python.py")
 
@@ -295,7 +298,7 @@ class TestCodeParser:
 
     def test_calls_edge_cross_file_resolution(self):
         """Call targets imported from another file should resolve to that file's qualified name."""
-        _, edges = self.parser.parse_file(FIXTURES / "caller_example.py")
+        _, edges = parse_path(self.parser, FIXTURES / "caller_example.py")
         calls = [e for e in edges if e.kind == "CALLS"]
 
         sample_path = str((FIXTURES / "sample_python.py").resolve())
@@ -307,7 +310,7 @@ class TestCodeParser:
 
     def test_same_file_calls_resolved(self):
         """Same-file call targets should be resolved to qualified names."""
-        _, edges = self.parser.parse_file(FIXTURES / "sample_python.py")
+        _, edges = parse_path(self.parser, FIXTURES / "sample_python.py")
         calls = [e for e in edges if e.kind == "CALLS"]
         # _validate_token is defined in the same file, so it should be qualified
         resolved_calls = [e for e in calls if "_validate_token" in e.target and "::" in e.target]
@@ -315,7 +318,7 @@ class TestCodeParser:
 
     def test_calls_edge_decorated_function_resolution(self):
         """Decorated functions should be in defined_names and resolvable as call targets."""
-        _, edges = self.parser.parse_file(FIXTURES / "sample_python.py")
+        _, edges = parse_path(self.parser, FIXTURES / "sample_python.py")
         calls = [e for e in edges if e.kind == "CALLS"]
         file_path = str(FIXTURES / "sample_python.py")
 
@@ -327,7 +330,7 @@ class TestCodeParser:
 
     def test_multiple_calls_to_same_function(self):
         """Multiple calls to the same function on different lines should each produce an edge."""
-        _, edges = self.parser.parse_file(FIXTURES / "multi_call_example.py")
+        _, edges = parse_path(self.parser, FIXTURES / "multi_call_example.py")
         calls = [e for e in edges if e.kind == "CALLS" and "_internal_request" in e.target]
         assert len(calls) == 2
         lines = {e.line for e in calls}
@@ -353,7 +356,7 @@ class TestCodeParser:
             tmp = Path(f.name)
 
         try:
-            _, edges = self.parser.parse_file(tmp)
+            _, edges = parse_path(self.parser, tmp)
             calls = [e for e in edges if e.kind == "CALLS"]
             module_scope_calls = [e for e in calls if e.source == str(tmp)]
             assert any(
@@ -386,7 +389,7 @@ class TestCodeParser:
             tmp = Path(f.name)
 
         try:
-            _, edges = self.parser.parse_file(tmp)
+            _, edges = parse_path(self.parser, tmp)
             calls = [e for e in edges if e.kind == "CALLS"]
             assert any(
                 "do_work" in e.target and e.source == str(tmp) for e in calls
@@ -395,18 +398,21 @@ class TestCodeParser:
             tmp.unlink()
 
     def test_parse_nonexistent_file(self):
-        nodes, edges = self.parser.parse_file(Path("/nonexistent/file.py"))
-        assert nodes == []
-        assert edges == []
+        """Reading is the caller's job; build loops catch OSError per file."""
+        with pytest.raises(OSError):
+            parse_path(self.parser, Path("/nonexistent/file.py"))
 
-    def test_parse_unsupported_extension(self):
-        nodes, edges = self.parser.parse_file(Path("readme.txt"))
+    def test_parse_unsupported_extension(self, tmp_path):
+        """Unknown extensions yield no nodes or edges."""
+        readme = tmp_path / "readme.txt"
+        readme.write_text("not code")
+        nodes, edges = parse_path(self.parser, readme)
         assert nodes == []
         assert edges == []
 
     def test_tested_by_edges_generated(self):
         """Test files should produce TESTED_BY edges when tests call production code."""
-        nodes, edges = self.parser.parse_file(FIXTURES / "test_sample.py")
+        nodes, edges = parse_path(self.parser, FIXTURES / "test_sample.py")
         tested_by = [e for e in edges if e.kind == "TESTED_BY"]
         assert len(tested_by) >= 1
 
@@ -453,7 +459,7 @@ class TestCodeParser:
         assert self.parser.detect_language(Path("App.vue")) == "vue"
 
     def test_parse_vue_file(self):
-        nodes, edges = self.parser.parse_file(FIXTURES / "sample_vue.vue")
+        nodes, edges = parse_path(self.parser, FIXTURES / "sample_vue.vue")
 
         # Should have File node with language=vue
         file_nodes = [n for n in nodes if n.kind == "File"]
@@ -468,14 +474,14 @@ class TestCodeParser:
         assert "fetchUsers" in func_names
 
     def test_parse_vue_imports(self):
-        nodes, edges = self.parser.parse_file(FIXTURES / "sample_vue.vue")
+        nodes, edges = parse_path(self.parser, FIXTURES / "sample_vue.vue")
         imports = [e for e in edges if e.kind == "IMPORTS_FROM"]
         import_targets = {e.target for e in imports}
         assert "vue" in import_targets
         assert "./UserList.vue" in import_targets
 
     def test_parse_vue_calls(self):
-        nodes, edges = self.parser.parse_file(FIXTURES / "sample_vue.vue")
+        nodes, edges = parse_path(self.parser, FIXTURES / "sample_vue.vue")
         calls = [e for e in edges if e.kind == "CALLS"]
         call_targets = {e.target for e in calls}
         assert "log" in call_targets or "console.log" in call_targets or any(
@@ -483,13 +489,13 @@ class TestCodeParser:
         )
 
     def test_parse_vue_contains_edges(self):
-        nodes, edges = self.parser.parse_file(FIXTURES / "sample_vue.vue")
+        nodes, edges = parse_path(self.parser, FIXTURES / "sample_vue.vue")
         contains = [e for e in edges if e.kind == "CONTAINS"]
         assert len(contains) >= 1
 
     def test_parse_vue_line_numbers_offset(self):
         """Line numbers should be offset to reflect position in the .vue file."""
-        nodes, edges = self.parser.parse_file(FIXTURES / "sample_vue.vue")
+        nodes, edges = parse_path(self.parser, FIXTURES / "sample_vue.vue")
         funcs = [n for n in nodes if n.kind == "Function" and n.name == "increment"]
         assert len(funcs) == 1
         # increment() is on line 22 of the .vue file (inside <script setup> starting at line 9)
@@ -497,7 +503,7 @@ class TestCodeParser:
 
     def test_parse_vue_nodes_have_vue_language(self):
         """All extracted nodes from Vue SFC should have language='vue'."""
-        nodes, _ = self.parser.parse_file(FIXTURES / "sample_vue.vue")
+        nodes, _ = parse_path(self.parser, FIXTURES / "sample_vue.vue")
         for node in nodes:
             assert node.language == "vue"
 
@@ -532,7 +538,7 @@ class TestCodeParser:
         assert self.parser.detect_language(Path("main.dart")) == "dart"
 
     def test_parse_dart_file(self):
-        nodes, edges = self.parser.parse_file(FIXTURES / "sample.dart")
+        nodes, edges = parse_path(self.parser, FIXTURES / "sample.dart")
 
         file_nodes = [n for n in nodes if n.kind == "File"]
         assert len(file_nodes) == 1
@@ -555,20 +561,20 @@ class TestCodeParser:
         assert "swim" in func_names
 
     def test_parse_dart_imports(self):
-        nodes, edges = self.parser.parse_file(FIXTURES / "sample.dart")
+        nodes, edges = parse_path(self.parser, FIXTURES / "sample.dart")
         imports = [e for e in edges if e.kind == "IMPORTS_FROM"]
         import_targets = {e.target for e in imports}
         assert "dart:async" in import_targets
         assert "package:flutter/material.dart" in import_targets
 
     def test_parse_dart_inheritance(self):
-        nodes, edges = self.parser.parse_file(FIXTURES / "sample.dart")
+        nodes, edges = parse_path(self.parser, FIXTURES / "sample.dart")
         inherits = [e for e in edges if e.kind == "INHERITS"]
         assert any("Dog" in e.source and "Animal" in e.target for e in inherits)
         assert any("Dog" in e.source and "SwimmingMixin" in e.target for e in inherits)
 
     def test_parse_dart_contains_edges(self):
-        nodes, edges = self.parser.parse_file(FIXTURES / "sample.dart")
+        nodes, edges = parse_path(self.parser, FIXTURES / "sample.dart")
         contains = [e for e in edges if e.kind == "CONTAINS"]
         # File should contain top-level classes and functions
         file_path = str(FIXTURES / "sample.dart")
@@ -581,7 +587,7 @@ class TestCodeParser:
         assert any("fetch" in t for t in dog_targets)
 
     def test_parse_dart_method_parent(self):
-        nodes, edges = self.parser.parse_file(FIXTURES / "sample.dart")
+        nodes, edges = parse_path(self.parser, FIXTURES / "sample.dart")
         funcs = [n for n in nodes if n.kind == "Function"]
         # Both Animal and Dog define speak(); check Dog's specifically
         dog_speak = next(
@@ -590,7 +596,7 @@ class TestCodeParser:
         assert dog_speak is not None
 
     def test_parse_dart_top_level_function_no_parent(self):
-        nodes, edges = self.parser.parse_file(FIXTURES / "sample.dart")
+        nodes, edges = parse_path(self.parser, FIXTURES / "sample.dart")
         funcs = [n for n in nodes if n.kind == "Function"]
         create_dog = next((f for f in funcs if f.name == "createDog"), None)
         assert create_dog is not None
@@ -605,7 +611,7 @@ class TestCodeParser:
         capture builtin calls (``print``), constructor calls (``Dog(...)``),
         and internal method calls (``_run()``).
         """
-        nodes, edges = self.parser.parse_file(FIXTURES / "sample.dart")
+        nodes, edges = parse_path(self.parser, FIXTURES / "sample.dart")
         calls = [e for e in edges if e.kind == "CALLS"]
         assert calls, "expected at least one CALLS edge for Dart"
         targets = [e.target for e in calls]
@@ -627,7 +633,7 @@ class TestCodeParser:
 
     def test_tsconfig_alias_resolution(self):
         """Alias imports should resolve to absolute file paths."""
-        nodes, edges = self.parser.parse_file(FIXTURES / "alias_importer.ts")
+        nodes, edges = parse_path(self.parser, FIXTURES / "alias_importer.ts")
         imports = [e for e in edges if e.kind == "IMPORTS_FROM"]
         resolved_imports = [e for e in imports if e.target.endswith("utils.ts")]
         assert len(resolved_imports) >= 1, (
@@ -643,7 +649,7 @@ class TestCodeParser:
             tmp_path = os.path.join(tmp_dir, "no_tsconfig_file.ts")
             with open(tmp_path, "w") as f:
                 f.write('import { foo } from "@/bar";\nexport const x = 1;\n')
-            nodes, edges = self.parser.parse_file(Path(tmp_path))
+            nodes, edges = parse_path(self.parser, Path(tmp_path))
             imports = [e for e in edges if e.kind == "IMPORTS_FROM"]
             assert any("@/bar" in e.target for e in imports)
 
@@ -651,7 +657,7 @@ class TestCodeParser:
 
     def test_vitest_test_detection(self):
         """Vitest describe/it/test calls should produce Test nodes."""
-        nodes, edges = self.parser.parse_file(FIXTURES / "sample_vitest.test.ts")
+        nodes, edges = parse_path(self.parser, FIXTURES / "sample_vitest.test.ts")
         tests = [n for n in nodes if n.kind == "Test"]
         test_names = {t.name for t in tests}
         assert any(n.startswith("describe") or n.startswith("describe:") for n in test_names), (
@@ -663,7 +669,7 @@ class TestCodeParser:
 
     def test_vitest_contains_edges(self):
         """describe Test nodes should CONTAIN it/test Test nodes."""
-        nodes, edges = self.parser.parse_file(FIXTURES / "sample_vitest.test.ts")
+        nodes, edges = parse_path(self.parser, FIXTURES / "sample_vitest.test.ts")
         describe_nodes = [
             n for n in nodes
             if n.kind == "Test"
@@ -683,7 +689,7 @@ class TestCodeParser:
 
     def test_vitest_calls_edges(self):
         """Calls inside test blocks should produce CALLS edges."""
-        nodes, edges = self.parser.parse_file(FIXTURES / "sample_vitest.test.ts")
+        nodes, edges = parse_path(self.parser, FIXTURES / "sample_vitest.test.ts")
         calls = [e for e in edges if e.kind == "CALLS"]
         assert len(calls) >= 1
         test_names = {n.name for n in nodes if n.kind == "Test"}
@@ -694,7 +700,7 @@ class TestCodeParser:
 
     def test_vitest_tested_by_edges(self):
         """TESTED_BY edges should be generated from test calls to production code."""
-        nodes, edges = self.parser.parse_file(FIXTURES / "sample_vitest.test.ts")
+        nodes, edges = parse_path(self.parser, FIXTURES / "sample_vitest.test.ts")
         tested_by = [e for e in edges if e.kind == "TESTED_BY"]
         assert len(tested_by) >= 1, (
             f"Expected TESTED_BY edges, got none. "
@@ -711,7 +717,7 @@ class TestCodeParser:
     def test_python_callback_references_emitted(self):
         """A function passed as a bare identifier to another call should
         produce a REFERENCES edge from the calling function to it."""
-        nodes, edges = self.parser.parse_file(FIXTURES / "sample_callback_refs.py")
+        nodes, edges = parse_path(self.parser, FIXTURES / "sample_callback_refs.py")
         refs = [e for e in edges if e.kind == "REFERENCES"]
         ref_target_names = {e.target.rsplit("::", 1)[-1] for e in refs}
         for callback in (
@@ -733,7 +739,7 @@ class TestCodeParser:
             db_path = Path(tmp_dir) / "graph.db"
             store = GraphStore(db_path)
             try:
-                nodes, edges = self.parser.parse_file(
+                nodes, edges = parse_path(self.parser, 
                     FIXTURES / "sample_callback_refs.py"
                 )
                 store.store_file_nodes_edges(
@@ -757,7 +763,7 @@ class TestCodeParser:
 
     def test_bun_test_detection(self):
         """A .test.ts file importing from 'bun:test' should produce Test nodes."""
-        nodes, _ = self.parser.parse_file(FIXTURES / "sample_bun.test.ts")
+        nodes, _ = parse_path(self.parser, FIXTURES / "sample_bun.test.ts")
         tests = [n for n in nodes if n.kind == "Test"]
         test_names = {t.name for t in tests}
         assert any(n.startswith("describe") or n.startswith("describe:") for n in test_names), (
@@ -769,7 +775,7 @@ class TestCodeParser:
 
     def test_bun_tested_by_edges(self):
         """TESTED_BY edges should be generated from bun tests to production code."""
-        _, edges = self.parser.parse_file(FIXTURES / "sample_bun.test.ts")
+        _, edges = parse_path(self.parser, FIXTURES / "sample_bun.test.ts")
         tested_by = [e for e in edges if e.kind == "TESTED_BY"]
         assert len(tested_by) >= 1, (
             f"Expected TESTED_BY edges, got none. "
@@ -798,7 +804,7 @@ class TestCodeParser:
             path = Path(tmpdir) / "src" / "__tests__" / "UserService.ts"
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(fixture_code, encoding="utf-8")
-            nodes, edges = self.parser.parse_file(path)
+            nodes, edges = parse_path(self.parser, path)
         tests = [n for n in nodes if n.kind == "Test"]
         test_names = {t.name for t in tests}
         assert any(n.startswith("describe") or n.startswith("describe:") for n in test_names), (
@@ -817,7 +823,7 @@ class TestCodeParser:
     def test_mocha_tdd_suite_produces_test_nodes(self):
         """A *.test.ts file using `suite()` should produce Test nodes
         and TESTED_BY edges, the same as a describe()-based file."""
-        nodes, edges = self.parser.parse_file(FIXTURES / "sample_mocha.test.ts")
+        nodes, edges = parse_path(self.parser, FIXTURES / "sample_mocha.test.ts")
         tests = [n for n in nodes if n.kind == "Test"]
         test_names = {t.name for t in tests}
         assert any(n.startswith("suite") or n.startswith("suite:") for n in test_names), (
@@ -844,7 +850,7 @@ class TestCodeParser:
             f.write(code)
             tmp_path = Path(f.name)
         try:
-            nodes, edges = self.parser.parse_file(tmp_path)
+            nodes, edges = parse_path(self.parser, tmp_path)
             tests = [n for n in nodes if n.kind == "Test"]
             assert len(tests) == 0, (
                 f"Non-test file should not have Test nodes, got: {[t.name for t in tests]}"
@@ -1076,7 +1082,7 @@ class TestCodeParser:
                 encoding="utf-8",
             )
 
-            _, edges = self.parser.parse_file(consumer)
+            _, edges = parse_path(self.parser, consumer)
 
             expected_target = (
                 f"{str((components / 'MarkdownMsg.jsx').resolve())}::MarkdownMsg"
@@ -1119,7 +1125,7 @@ class TestCodeParser:
                 encoding="utf-8",
             )
 
-            _, edges = self.parser.parse_file(consumer)
+            _, edges = parse_path(self.parser, consumer)
 
             expected_target = (
                 f"{str((messages / 'MarkdownMsg.jsx').resolve())}::MarkdownMsg"
@@ -1182,7 +1188,7 @@ class TestValueReferences:
 
     def test_ts_object_literal_function_values(self):
         """Object literal values that are function identifiers emit REFERENCES edges."""
-        nodes, edges = self.parser.parse_file(FIXTURES / "sample_map_dispatch.ts")
+        nodes, edges = parse_path(self.parser, FIXTURES / "sample_map_dispatch.ts")
         refs = [e for e in edges if e.kind == "REFERENCES"]
         ref_targets_bare = {e.target.split("::")[-1] for e in refs}
         # handleCreate, handleUpdate, handleDelete are values in the handlers object
@@ -1192,7 +1198,7 @@ class TestValueReferences:
 
     def test_ts_shorthand_property_references(self):
         """Shorthand properties like { validateInput } emit REFERENCES edges."""
-        nodes, edges = self.parser.parse_file(FIXTURES / "sample_map_dispatch.ts")
+        nodes, edges = parse_path(self.parser, FIXTURES / "sample_map_dispatch.ts")
         refs = [e for e in edges if e.kind == "REFERENCES"]
         ref_targets_bare = {e.target.split("::")[-1] for e in refs}
         assert "validateInput" in ref_targets_bare
@@ -1200,7 +1206,7 @@ class TestValueReferences:
 
     def test_ts_array_function_elements(self):
         """Array elements that are function identifiers emit REFERENCES edges."""
-        nodes, edges = self.parser.parse_file(FIXTURES / "sample_map_dispatch.ts")
+        nodes, edges = parse_path(self.parser, FIXTURES / "sample_map_dispatch.ts")
         refs = [e for e in edges if e.kind == "REFERENCES"]
         ref_targets_bare = {e.target.split("::")[-1] for e in refs}
         # pipeline = [validateInput, processData, formatOutput]
@@ -1208,7 +1214,7 @@ class TestValueReferences:
 
     def test_ts_callback_argument_reference(self):
         """Function identifiers passed as arguments emit REFERENCES edges."""
-        nodes, edges = self.parser.parse_file(FIXTURES / "sample_map_dispatch.ts")
+        nodes, edges = parse_path(self.parser, FIXTURES / "sample_map_dispatch.ts")
         refs = [e for e in edges if e.kind == "REFERENCES"]
         ref_targets_bare = {e.target.split("::")[-1] for e in refs}
         # register(handleCreate) in dispatch function
@@ -1216,7 +1222,7 @@ class TestValueReferences:
 
     def test_ts_property_assignment_reference(self):
         """Property assignment RHS identifiers emit REFERENCES edges."""
-        nodes, edges = self.parser.parse_file(FIXTURES / "sample_map_dispatch.ts")
+        nodes, edges = parse_path(self.parser, FIXTURES / "sample_map_dispatch.ts")
         refs = [e for e in edges if e.kind == "REFERENCES"]
         ref_targets_bare = {e.target.split("::")[-1] for e in refs}
         # dynamicHandlers['format'] = formatOutput
@@ -1224,7 +1230,7 @@ class TestValueReferences:
 
     def test_python_dict_function_values(self):
         """Python dict values that are function identifiers emit REFERENCES edges."""
-        nodes, edges = self.parser.parse_file(FIXTURES / "sample_map_dispatch.py")
+        nodes, edges = parse_path(self.parser, FIXTURES / "sample_map_dispatch.py")
         refs = [e for e in edges if e.kind == "REFERENCES"]
         ref_targets_bare = {e.target.split("::")[-1] for e in refs}
         assert "handle_create" in ref_targets_bare
@@ -1233,7 +1239,7 @@ class TestValueReferences:
 
     def test_python_list_function_elements(self):
         """Python list elements that are function identifiers emit REFERENCES edges."""
-        nodes, edges = self.parser.parse_file(FIXTURES / "sample_map_dispatch.py")
+        nodes, edges = parse_path(self.parser, FIXTURES / "sample_map_dispatch.py")
         refs = [e for e in edges if e.kind == "REFERENCES"]
         ref_targets_bare = {e.target.split("::")[-1] for e in refs}
         # pipeline = [validate_input, process_data, format_output]
@@ -1243,7 +1249,7 @@ class TestValueReferences:
 
     def test_references_have_correct_source(self):
         """REFERENCES edges should have the enclosing function as source."""
-        nodes, edges = self.parser.parse_file(FIXTURES / "sample_map_dispatch.ts")
+        nodes, edges = parse_path(self.parser, FIXTURES / "sample_map_dispatch.ts")
         refs = [e for e in edges if e.kind == "REFERENCES"]
         # The register(handleCreate) call is inside 'dispatch'
         dispatch_refs = [
@@ -1279,7 +1285,7 @@ class TestValueReferences:
 
     def test_resolve_references_targets(self):
         """REFERENCES edges should have resolved (qualified) targets for local funcs."""
-        nodes, edges = self.parser.parse_file(FIXTURES / "sample_map_dispatch.ts")
+        nodes, edges = parse_path(self.parser, FIXTURES / "sample_map_dispatch.ts")
         refs = [e for e in edges if e.kind == "REFERENCES"]
         file_path = str(FIXTURES / "sample_map_dispatch.ts")
         # At least some targets should be fully qualified
@@ -1420,7 +1426,7 @@ ExtensionID PlaybackExtension::ID() const { return {}; }
 """
         p = tmp_path / "x.cpp"
         p.write_bytes(src)
-        nodes, _ = self.parser.parse_file(p)
+        nodes, _ = parse_path(self.parser, p)
         names = [n.name for n in nodes if n.kind == "Function"]
         assert names == [
             "resetStateForPool",
@@ -1455,7 +1461,7 @@ class TestCppScopedFunctionName:
             "}\n"
         )
         p = CodeParser()
-        nodes, _ = p.parse_file(src)
+        nodes, _ = parse_path(p, src)
         fns = [n for n in nodes if n.kind == "Function"]
         assert len(fns) == 1
         assert fns[0].name == "get_inc_map"
@@ -1469,7 +1475,7 @@ class TestCppScopedFunctionName:
             "}\n"
         )
         p = CodeParser()
-        nodes, _ = p.parse_file(src)
+        nodes, _ = parse_path(p, src)
         fns = [n for n in nodes if n.kind == "Function"]
         assert len(fns) == 1
         assert fns[0].name == "get_pool_name"
@@ -1483,7 +1489,7 @@ class TestCppScopedFunctionName:
             "}\n"
         )
         p = CodeParser()
-        nodes, _ = p.parse_file(src)
+        nodes, _ = parse_path(p, src)
         fns = [n for n in nodes if n.kind == "Function"]
         assert len(fns) == 1
         assert fns[0].name == "handle_osd_map"
@@ -1497,7 +1503,7 @@ class TestCppScopedFunctionName:
             "}\n"
         )
         p = CodeParser()
-        nodes, _ = p.parse_file(src)
+        nodes, _ = parse_path(p, src)
         fns = [n for n in nodes if n.kind == "Function"]
         assert len(fns) == 1
         assert fns[0].name == "_make_key"
@@ -1511,7 +1517,7 @@ class TestCppScopedFunctionName:
             "}\n"
         )
         p = CodeParser()
-        nodes, _ = p.parse_file(src)
+        nodes, _ = parse_path(p, src)
         fns = [n for n in nodes if n.kind == "Function"]
         assert len(fns) == 1
         assert fns[0].name == "get_obj_fingerprint"
@@ -1539,7 +1545,7 @@ class TestPythonRelativeImportResolution:
         return pkg
 
     def _calls(self, source: Path) -> list[str]:
-        _, edges = self.parser.parse_file(source)
+        _, edges = parse_path(self.parser, source)
         return [e.target for e in edges if e.kind == "CALLS"]
 
     def test_sibling_relative_import(self, tmp_path: Path):
@@ -1606,7 +1612,7 @@ class TestPythonReexportResolution:
         return pkg
 
     def _calls(self, source: Path) -> list[str]:
-        _, edges = self.parser.parse_file(source)
+        _, edges = parse_path(self.parser, source)
         return [e.target for e in edges if e.kind == "CALLS"]
 
     def test_function_reexported_by_package_init(self, tmp_path: Path):

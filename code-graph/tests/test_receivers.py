@@ -6,6 +6,7 @@ from pathlib import Path
 from codegraph.graph import GraphStore
 from codegraph.parser import CodeParser, EdgeInfo, NodeInfo
 from codegraph.receivers import resolve_typed_receivers
+from tests.support import parse_path
 
 
 class TestPythonReceiverMetadata:
@@ -15,7 +16,7 @@ class TestPythonReceiverMetadata:
         self.parser = CodeParser()
 
     def _call_edges(self, source: Path) -> list[EdgeInfo]:
-        _, edges = self.parser.parse_file(source)
+        _, edges = parse_path(self.parser, source)
         return [e for e in edges if e.kind == "CALLS"]
 
     def _find(self, edges, method: str) -> EdgeInfo:
@@ -129,7 +130,7 @@ class TestTypeScriptReceiverMetadata:
             "}\n"
         )
 
-        _, edges = self.parser.parse_file(source)
+        _, edges = parse_path(self.parser, source)
         by_method = {
             e.target.rsplit(".", 1)[-1]: e.extra
             for e in edges if e.kind == "CALLS"
