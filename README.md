@@ -77,5 +77,7 @@ entity ID, so a block of another type is left alone rather than rewritten.
 ## Further reading
 
 - [Architecture](code-graph/docs/architecture.md): build and query flow.
+- [Detailed design](code-graph/docs/detailed-design.md): algorithms, formulas, and
+  the constants behind community detection, flows, risk, and ranking.
 - [Development](code-graph/docs/development.md): extending the tool.
 - [ctx-sync rules](ctx-sync/README.md): merge rules and document format.

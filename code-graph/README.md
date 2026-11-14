@@ -251,6 +251,9 @@ code-graph export --type flows --limit 20 > flows.json
 
 - [docs/architecture.md](docs/architecture.md) — overall flow, layers, data model,
   build/query pipelines, resolution and post-processing.
+- [docs/detailed-design.md](docs/detailed-design.md) — the algorithms and the
+  numbers: community detection, cohesion, flow criticality, change risk, search
+  ranking, and every constant behind them.
 - [docs/development.md](docs/development.md) — how to modify the project: add a
   command, language, resolver, or migration; testing and linting.
 
