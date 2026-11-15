@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .graph import GraphStore
+    from ..graph import GraphStore
 
 logger = logging.getLogger(__name__)
 

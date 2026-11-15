@@ -821,7 +821,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/graph.py::build#da28f41dd363
+* flow=code-graph/src/codegraph/cli/graph.py::build#ab9f31956bde
     * entry_point=code-graph/src/codegraph/cli/graph.py::build
     * criticality=0.74
     * nodes=224/458
@@ -842,20 +842,20 @@ listed twice is a re-encountered call whose subtree was not walked again. All
             * → code-graph/src/codegraph/incremental.py::_make_executor
                 * → code-graph/src/codegraph/incremental.py::_select_executor_kind
             * → code-graph/src/codegraph/incremental.py::_run_receiver_resolver
-                * → code-graph/src/codegraph/parsing/receivers.py::resolve_typed_receivers
+                * → code-graph/src/codegraph/resolvers/receivers.py::resolve_typed_receivers
             * → code-graph/src/codegraph/incremental.py::_run_rescript_resolver
-                * → code-graph/src/codegraph/parsing/rescript.py::resolve_rescript_cross_module
+                * → code-graph/src/codegraph/resolvers/rescript.py::resolve_rescript_cross_module
                     * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._invalidate_cache
                     * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_files
-                    * → code-graph/src/codegraph/parsing/rescript.py::_resolve_call_target
+                    * → code-graph/src/codegraph/resolvers/rescript.py::_resolve_call_target
                         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_node
                             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
-                        * → code-graph/src/codegraph/parsing/rescript.py::_pick_existing_qualified
+                        * → code-graph/src/codegraph/resolvers/rescript.py::_pick_existing_qualified
                             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_node
             * → code-graph/src/codegraph/incremental.py::_run_spring_resolver
-                * → code-graph/src/codegraph/parsing/spring.py::resolve_spring_di_calls
+                * → code-graph/src/codegraph/resolvers/spring.py::resolve_spring_di_calls
             * → code-graph/src/codegraph/incremental.py::_run_temporal_resolver
-                * → code-graph/src/codegraph/parsing/temporal.py::resolve_temporal_calls
+                * → code-graph/src/codegraph/resolvers/temporal.py::resolve_temporal_calls
             * → code-graph/src/codegraph/incremental.py::_store_batch_size
             * → code-graph/src/codegraph/incremental.py::_store_vcs_metadata
                 * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.set_metadata
@@ -1371,7 +1371,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/graph.py::update#0a4db43dba6d
+* flow=code-graph/src/codegraph/cli/graph.py::update#05149d421833
     * entry_point=code-graph/src/codegraph/cli/graph.py::update
     * criticality=0.74
     * nodes=224/458
@@ -1392,20 +1392,20 @@ listed twice is a re-encountered call whose subtree was not walked again. All
             * → code-graph/src/codegraph/incremental.py::_make_executor
                 * → code-graph/src/codegraph/incremental.py::_select_executor_kind
             * → code-graph/src/codegraph/incremental.py::_run_receiver_resolver
-                * → code-graph/src/codegraph/parsing/receivers.py::resolve_typed_receivers
+                * → code-graph/src/codegraph/resolvers/receivers.py::resolve_typed_receivers
             * → code-graph/src/codegraph/incremental.py::_run_rescript_resolver
-                * → code-graph/src/codegraph/parsing/rescript.py::resolve_rescript_cross_module
+                * → code-graph/src/codegraph/resolvers/rescript.py::resolve_rescript_cross_module
                     * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._invalidate_cache
                     * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_files
-                    * → code-graph/src/codegraph/parsing/rescript.py::_resolve_call_target
+                    * → code-graph/src/codegraph/resolvers/rescript.py::_resolve_call_target
                         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_node
                             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
-                        * → code-graph/src/codegraph/parsing/rescript.py::_pick_existing_qualified
+                        * → code-graph/src/codegraph/resolvers/rescript.py::_pick_existing_qualified
                             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_node
             * → code-graph/src/codegraph/incremental.py::_run_spring_resolver
-                * → code-graph/src/codegraph/parsing/spring.py::resolve_spring_di_calls
+                * → code-graph/src/codegraph/resolvers/spring.py::resolve_spring_di_calls
             * → code-graph/src/codegraph/incremental.py::_run_temporal_resolver
-                * → code-graph/src/codegraph/parsing/temporal.py::resolve_temporal_calls
+                * → code-graph/src/codegraph/resolvers/temporal.py::resolve_temporal_calls
             * → code-graph/src/codegraph/incremental.py::_store_batch_size
             * → code-graph/src/codegraph/incremental.py::_store_vcs_metadata
                 * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.set_metadata

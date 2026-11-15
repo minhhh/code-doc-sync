@@ -1,18 +1,19 @@
-"""Post-build Spring DI call resolver.
+"""Post-build Temporal workflow/activity call resolver.
 
 After tree-sitter parsing, Java CALLS edges whose target is a bare method
-name (e.g. ``calculate``) carry ``extra.receiver`` naming the local variable
-that was called on (e.g. ``invoiceCalculationService``).  This module
-resolves those receivers through the INJECTS map to their declared type, then
-optionally to the unique concrete implementation via INHERITS edges.
+name carry ``extra.receiver`` naming the local variable called on.  This
+module resolves those receivers through the TEMPORAL_STUB map to their
+declared Temporal interface type, then optionally to the unique concrete
+implementation via INHERITS edges.
 
 Resolution chain:
     receiver variable name
-        → injected interface/class (from INJECTS.extra.field_name)
+        → temporal stub field type (from TEMPORAL_STUB.extra.field_name)
         → concrete implementation (from INHERITS, when unique)
 
-Only Java files are processed.  Edges that are already qualified (contain
-``::``) or have no ``receiver`` extra key are skipped.
+Only Java files are processed.  TEMPORAL_STUB edges whose target is not a
+node with ``temporal_role`` in extra are silently skipped (they may be
+non-Temporal types that happen to end in 'Activity'/'Workflow').
 """
 
 from __future__ import annotations
@@ -22,22 +23,21 @@ import logging
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .graph import GraphStore
+    from ..graph import GraphStore
 
 logger = logging.getLogger(__name__)
 
 
-def resolve_spring_di_calls(store: GraphStore) -> dict:
-    """Resolve Java CALLS edges whose receiver is a Spring-injected field.
+def resolve_temporal_calls(store: GraphStore) -> dict:
+    """Resolve Java CALLS edges whose receiver is a Temporal activity/workflow stub.
 
-    Safe to call multiple times — already-resolved edges (targets containing
-    ``::``) are skipped.
+    Safe to call multiple times — already-resolved edges (with
+    ``extra.temporal_resolved``) are skipped.
 
     Returns a dict with resolution counts for telemetry.
     """
     conn = store._conn
 
-    # Only process Java files
     java_files: set[str] = {
         row["file_path"]
         for row in conn.execute(
@@ -48,14 +48,36 @@ def resolve_spring_di_calls(store: GraphStore) -> dict:
         return {"files_indexed": 0, "calls_resolved": 0}
 
     # -----------------------------------------------------------------------
-    # Build field_map: (source_qualified_class, field_name) → injected_type
-    # from INJECTS edges that carry extra.field_name
+    # Collect Temporal interface nodes: bare name → qualified_name
+    # (nodes whose extra contains temporal_role = workflow_interface|activity_interface)
+    # -----------------------------------------------------------------------
+    temporal_interfaces: dict[str, str] = {}  # bare_name → qualified_name
+    for row in conn.execute(
+        "SELECT name, qualified_name, extra FROM nodes "
+        "WHERE language = 'java' AND extra IS NOT NULL AND extra LIKE '%temporal_role%'"
+    ).fetchall():
+        try:
+            ex = json.loads(row["extra"] or "{}")
+        except (json.JSONDecodeError, TypeError):
+            ex = {}
+        if ex.get("temporal_role") in ("workflow_interface", "activity_interface"):
+            temporal_interfaces[row["name"]] = row["qualified_name"]
+
+    if not temporal_interfaces:
+        logger.info("Temporal resolver: no Workflow/ActivityInterface nodes, skipping")
+        return {"files_indexed": len(java_files), "calls_resolved": 0}
+
+    # -----------------------------------------------------------------------
+    # Build field_map: (source_qualified_class, field_name) → interface_type
+    # from TEMPORAL_STUB edges whose target is a known Temporal interface
     # -----------------------------------------------------------------------
     field_map: dict[tuple[str, str], str] = {}
-    injects_rows = conn.execute(
-        "SELECT source_qualified, target_qualified, extra FROM edges WHERE kind = 'INJECTS'"
-    ).fetchall()
-    for row in injects_rows:
+    for row in conn.execute(
+        "SELECT source_qualified, target_qualified, extra FROM edges WHERE kind = 'TEMPORAL_STUB'"
+    ).fetchall():
+        bare_target = row["target_qualified"]
+        if bare_target not in temporal_interfaces:
+            continue
         try:
             extra = json.loads(row["extra"] or "{}")
         except (json.JSONDecodeError, TypeError):
@@ -63,33 +85,15 @@ def resolve_spring_di_calls(store: GraphStore) -> dict:
         fname = extra.get("field_name")
         if not fname:
             continue
-        # source_qualified is the full class qualified name
-        class_qual = row["source_qualified"]
-        field_map[(class_qual, fname)] = row["target_qualified"]
+        field_map[(row["source_qualified"], fname)] = bare_target
 
     if not field_map:
-        logger.info("Spring resolver: no INJECTS edges with field_name found, skipping")
+        logger.info("Temporal resolver: no TEMPORAL_STUB edges found, skipping")
         return {"files_indexed": len(java_files), "calls_resolved": 0}
 
     # -----------------------------------------------------------------------
-    # Build class_name → qualified_name lookup from nodes.
-    # Keyed by bare class name; value is the full "file_path::ClassName" form
-    # that callers_of uses for its target_qualified exact-match lookup.
-    # When a name appears in multiple files (e.g. same interface in several
-    # services), we keep the entry with the shortest path as a tiebreaker —
-    # this is overridden by the concrete-implementation lookup below.
+    # method_to_qual: (class_name, method_name) → full qualified_name
     # -----------------------------------------------------------------------
-    name_to_qual: dict[str, str] = {}
-    for row in conn.execute(
-        "SELECT name, qualified_name FROM nodes WHERE kind = 'Class' AND language = 'java'"
-    ).fetchall():
-        bare = row["name"]
-        qual = row["qualified_name"]
-        if bare not in name_to_qual or len(qual) < len(name_to_qual[bare]):
-            name_to_qual[bare] = qual
-
-    # Also index Function nodes so we can build "file::Class.method" targets.
-    # key: (class_name, method_name) → full qualified_name of the method node
     method_to_qual: dict[tuple[str, str], str] = {}
     for row in conn.execute(
         "SELECT name, qualified_name, parent_name FROM nodes "
@@ -98,8 +102,7 @@ def resolve_spring_di_calls(store: GraphStore) -> dict:
         method_to_qual[(row["parent_name"], row["name"])] = row["qualified_name"]
 
     # -----------------------------------------------------------------------
-    # Build implementors: bare interface name → list of implementing class quals
-    # from INHERITS edges (Java uses INHERITS for both extends and implements)
+    # implementors: bare interface name → list of implementing class quals
     # -----------------------------------------------------------------------
     implementors: dict[str, list[str]] = {}
     for row in conn.execute(
@@ -133,22 +136,19 @@ def resolve_spring_di_calls(store: GraphStore) -> dict:
         if not receiver:
             continue
 
-        # Skip edges already spring-resolved in a previous pass
-        if extra.get("spring_resolved"):
+        if extra.get("temporal_resolved") or extra.get("spring_resolved"):
             continue
 
-        # Strip any prior (possibly wrong) qualification — we have a receiver so
-        # we can do a better resolution.  E.g. "file::ClassName.method" → "method"
         raw_target = row["target_qualified"]
         if "::" in raw_target:
             after = raw_target.split("::", 1)[1]
             method_name = after.split(".")[-1] if "." in after else after
         else:
             method_name = raw_target
+
         source_qual = row["source_qualified"]
 
-        # Derive the enclosing class qualified name from source
-        # source_qual format: "file_path::ClassName.method_name"
+        # Derive enclosing class qualified name
         enclosing_class_qual: str | None = None
         if "::" in source_qual:
             after_sep = source_qual.split("::", 1)[1]
@@ -162,24 +162,23 @@ def resolve_spring_di_calls(store: GraphStore) -> dict:
         if not enclosing_class_qual:
             continue
 
-        # Look up receiver in field_map for this class
-        injected_type = field_map.get((enclosing_class_qual, receiver))
-        if not injected_type:
+        interface_bare = field_map.get((enclosing_class_qual, receiver))
+        if not interface_bare:
             continue
 
-        # Resolve to concrete implementation if unique
-        impls = implementors.get(injected_type, [])
+        interface_qual = temporal_interfaces.get(interface_bare, interface_bare)
+
+        impls = implementors.get(interface_qual, [])
         if len(impls) == 1:
             concrete_class = impls[0].split("::")[-1]
             fallback = f"{impls[0]}.{method_name}"
             new_target = method_to_qual.get((concrete_class, method_name)) or fallback
         else:
-            type_bare = injected_type.rsplit(".", 1)[-1]
-            fallback = f"{injected_type}.{method_name}"
-            new_target = method_to_qual.get((type_bare, method_name)) or fallback
+            fallback = f"{interface_qual}.{method_name}"
+            new_target = method_to_qual.get((interface_bare, method_name)) or fallback
 
-        extra["spring_resolved"] = True
-        extra["injected_type"] = injected_type
+        extra["temporal_resolved"] = True
+        extra["temporal_interface"] = interface_bare
         new_extra = json.dumps(extra)
 
         conn.execute(
@@ -188,13 +187,13 @@ def resolve_spring_di_calls(store: GraphStore) -> dict:
         )
         resolved += 1
         logger.debug(
-            "Spring resolved: %s → %s (was %s, receiver=%s)",
-            source_qual, new_target, method_name, receiver,
+            "Temporal resolved: %s → %s (receiver=%s, interface=%s)",
+            source_qual, new_target, receiver, interface_bare,
         )
 
     if resolved:
         conn.commit()
 
-    logger.info("Spring DI resolver: resolved %d CALLS edges in %d Java files",
+    logger.info("Temporal resolver: resolved %d CALLS edges in %d Java files",
                 resolved, len(java_files))
     return {"files_indexed": len(java_files), "calls_resolved": resolved}

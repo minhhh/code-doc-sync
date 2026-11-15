@@ -18,8 +18,8 @@ them, and how queries read the result.
 │ incremental, postprocessing, flows, communities, analysis,   │
 │ changes, search, refactor                                    │
 │   graph/    store (SQLite), migrations                       │
-│   parsing/  parser, receivers, tsconfig, rescript, spring,   │
-│             temporal                                         │
+│   parsing/  parser, tsconfig aliases, custom languages       │
+│   resolvers/ receivers, spring, temporal, rescript           │
 │   lib/      constants, repo seam (open_store, root paths)    │
 └───────────────┬──────────────────────────────────────────────┘
                 │
@@ -91,18 +91,19 @@ names:
 1. Local definition wins.
 2. Imported symbol: resolve the module to a file, then chase the export
    (including aliases and `export *` barrels for JS/TS).
-3. Otherwise keep the bare name. The receiver pass (`parsing/receivers.py`) resolves
+3. Otherwise keep the bare name. The receiver pass (`resolvers/receivers.py`) resolves
    it later only when a declared receiver type names the class that declares
    the method; no name-only matching happens.
 
-`parsing/parser.py` holds the Tree-sitter extraction; the rest of the package
-fills gaps it cannot see:
+`parsing/parser.py` holds the Tree-sitter extraction. `parsing/tsconfig.py`
+resolves TS path aliases during the parse, and `parsing/custom.py` loads
+repo-defined languages. Everything else runs after the parse and lives in
+`resolvers/`:
 
-- `parsing/receivers.py` — member calls whose receiver type is declared.
-- `parsing/tsconfig.py` — TS path aliases and `baseUrl`.
-- `parsing/rescript.py` — ReScript module graph.
-- `parsing/spring.py` — Spring dependency injection wiring.
-- `parsing/temporal.py` — Temporal workflow/activity wiring.
+- `resolvers/receivers.py` — member calls whose receiver type is declared.
+- `resolvers/rescript.py` — ReScript module graph.
+- `resolvers/spring.py` — Spring dependency injection wiring.
+- `resolvers/temporal.py` — Temporal workflow/activity wiring.
 
 ## Storage
 

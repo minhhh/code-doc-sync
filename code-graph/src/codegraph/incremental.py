@@ -63,7 +63,7 @@ def _run_rescript_resolver(store: GraphStore) -> Optional[dict]:
     build never fails because of it. Returns stats or None on error.
     """
     try:
-        from .parsing.rescript import resolve_rescript_cross_module
+        from .resolvers.rescript import resolve_rescript_cross_module
         return resolve_rescript_cross_module(store)
     except Exception as exc:  # noqa: BLE001 - best-effort post-pass
         logger.warning("ReScript cross-module resolver failed: %s", exc)
@@ -75,7 +75,7 @@ def _run_spring_resolver(store: GraphStore) -> Optional[dict]:
     build never fails because of it. Returns stats or None on error.
     """
     try:
-        from .parsing.spring import resolve_spring_di_calls
+        from .resolvers.spring import resolve_spring_di_calls
         return resolve_spring_di_calls(store)
     except Exception as exc:  # noqa: BLE001 - best-effort post-pass
         logger.warning("Spring DI resolver failed: %s", exc)
@@ -87,7 +87,7 @@ def _run_temporal_resolver(store: GraphStore) -> Optional[dict]:
     build never fails because of it. Returns stats or None on error.
     """
     try:
-        from .parsing.temporal import resolve_temporal_calls
+        from .resolvers.temporal import resolve_temporal_calls
         return resolve_temporal_calls(store)
     except Exception as exc:  # noqa: BLE001 - best-effort post-pass
         logger.warning("Temporal resolver failed: %s", exc)
@@ -100,7 +100,7 @@ def _run_receiver_resolver(store: GraphStore) -> Optional[dict]:
     Swallows failures so a resolver bug can never fail a build.
     """
     try:
-        from .parsing.receivers import resolve_typed_receivers
+        from .resolvers.receivers import resolve_typed_receivers
         return resolve_typed_receivers(store)
     except Exception as exc:  # noqa: BLE001 - best-effort post-pass
         logger.warning("Typed receiver resolver failed: %s", exc)

@@ -1964,7 +1964,7 @@ class TestRescriptCrossModuleResolver:
         assert stats["imports_resolved"] >= 2
 
     def test_resolver_is_idempotent(self, tmp_path):
-        from codegraph.parsing.rescript import (
+        from codegraph.resolvers.rescript import (
             resolve_rescript_cross_module,
         )
         store, _ = self._build(tmp_path)
