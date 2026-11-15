@@ -219,8 +219,8 @@ reached), `node_count`, `file_count`, and the path.
 ### Criticality
 
 ```
-file_spread  = min((file_count - 1) / 4, 1)        # 1 file → 0, 5+ → 1
-external     = min(external_calls / 5, 1)
+file_spread  = min((file_count - 1) / 7, 1)        # 1 file → 0, 8+ → 1
+external     = min(unique_external_modules / 8, 1)
 security     = security_hits / node_count
 test_gap     = 1 - tested_nodes / node_count
 depth_score  = min(depth / 10, 1)
@@ -232,10 +232,26 @@ criticality = 0.30 * file_spread
             + 0.10 * depth_score
 ```
 
-`external_calls` counts `CALLS` targets that are not present in the graph, which
-is how stdlib and third-party calls show up. `security_hits` counts nodes whose
-name or qualified name contains one of `SECURITY_KEYWORDS`, at most once per
-node. Result is clamped to `[0, 1]` and rounded to 4 decimals.
+`external` counts distinct modules imported from outside the project that flow
+nodes call (`logging.getLogger`, `sqlite3.connect`, `re.compile`). The parser
+marks such edges with `extra.external_module` at extraction time: the receiver
+is a member call on a name that appears in the file's import map, and that
+import's module has no file in the repository. Calls on local values
+(`seen.add`), calls resolved to nodes, and unresolved bare names (`append`,
+`get`) are excluded — the last group was 97% of the old count and made this
+factor measure how many stdlib methods a flow happened to call.
+
+A call that resolves to a node is always inside the flow, because tracing
+follows it into the path. So "external to this flow" cannot be derived from
+resolution failure; it has to be derived from where the callee comes from.
+
+`security_hits` counts nodes whose name or qualified name contains one of
+`SECURITY_KEYWORDS`, at most once per node. Result is clamped to `[0, 1]` and
+rounded to 4 decimals.
+
+`test_gap` is `1.0` for every flow when the graph holds no `TESTED_BY` edges —
+true for this repository, whose `.code-graphignore` drops `tests/**`. The factor
+then adds a constant offset and ranks nothing.
 
 Flows are stored sorted by criticality descending.
 
@@ -407,28 +423,20 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/cli/arch.py::arch_bridges
     * entry_point=code-graph/src/codegraph/cli/arch.py::arch_bridges
-    * criticality=0.7092
+    * criticality=0.5235
     * nodes=26/27
 * code-graph/src/codegraph/cli/arch.py::arch_bridges
-    * → code-graph/src/codegraph/cli/common.py::_emit
-        * → code-graph/src/codegraph/cli/common.py::_color_enabled
-        * → code-graph/src/codegraph/cli/common.py::_json_text
     * → code-graph/src/codegraph/cli/common.py::_root
         * → code-graph/src/codegraph/pipeline/incremental.py::find_project_root
             * → code-graph/src/codegraph/pipeline/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/pipeline/incremental.py::find_svn_root
     * → code-graph/src/codegraph/cli/common.py::_store
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
         * → code-graph/src/codegraph/pipeline/incremental.py::get_db_path
             * → code-graph/src/codegraph/pipeline/incremental.py::get_data_dir
                 * → code-graph/src/codegraph/pipeline/incremental.py::_write_data_dir_gitignore
-    * → code-graph/src/codegraph/cli/common.py::_with_hints
-        * → code-graph/src/codegraph/cli/hints.py::generate_hints
-            * → code-graph/src/codegraph/cli/hints.py::_build_next_steps
-            * → code-graph/src/codegraph/cli/hints.py::_build_related
-            * → code-graph/src/codegraph/cli/hints.py::_extract_warnings
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
     * → code-graph/src/codegraph/query/analysis.py::find_bridge_nodes
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._build_networkx_graph
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_community_ids
@@ -436,346 +444,354 @@ listed twice is a re-encountered call whose subtree was not walked again. All
             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
                 * → code-graph/src/codegraph/graph/graph_store.py::GraphNode
         * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
+    * → code-graph/src/codegraph/cli/common.py::_emit
+        * → code-graph/src/codegraph/cli/common.py::_json_text
+        * → code-graph/src/codegraph/cli/common.py::_color_enabled
+    * → code-graph/src/codegraph/cli/common.py::_with_hints
+        * → code-graph/src/codegraph/cli/hints.py::generate_hints
+            * → code-graph/src/codegraph/cli/hints.py::_build_next_steps
+            * → code-graph/src/codegraph/cli/hints.py::_build_related
+            * → code-graph/src/codegraph/cli/hints.py::_extract_warnings
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/cli/arch.py::arch_communities
     * entry_point=code-graph/src/codegraph/cli/arch.py::arch_communities
-    * criticality=0.7117
+    * criticality=0.501
     * nodes=23/25
 * code-graph/src/codegraph/cli/arch.py::arch_communities
-    * → code-graph/src/codegraph/cli/arch.py::_require_graph
-        * → code-graph/src/codegraph/pipeline/incremental.py::get_db_path
-            * → code-graph/src/codegraph/pipeline/incremental.py::get_data_dir
-                * → code-graph/src/codegraph/pipeline/incremental.py::_write_data_dir_gitignore
-    * → code-graph/src/codegraph/cli/common.py::_emit
-        * → code-graph/src/codegraph/cli/common.py::_color_enabled
-        * → code-graph/src/codegraph/cli/common.py::_json_text
     * → code-graph/src/codegraph/cli/common.py::_root
         * → code-graph/src/codegraph/pipeline/incremental.py::find_project_root
             * → code-graph/src/codegraph/pipeline/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/pipeline/incremental.py::find_svn_root
+    * → code-graph/src/codegraph/cli/arch.py::_require_graph
+        * → code-graph/src/codegraph/pipeline/incremental.py::get_db_path
+            * → code-graph/src/codegraph/pipeline/incremental.py::get_data_dir
+                * → code-graph/src/codegraph/pipeline/incremental.py::_write_data_dir_gitignore
     * → code-graph/src/codegraph/cli/common.py::_store
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore
+        * → code-graph/src/codegraph/pipeline/incremental.py::get_db_path
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
-        * → code-graph/src/codegraph/pipeline/incremental.py::get_db_path
+    * → code-graph/src/codegraph/query/communities.py::get_communities
+        * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_community_member_qns
+    * → code-graph/src/codegraph/cli/common.py::_emit
+        * → code-graph/src/codegraph/cli/common.py::_json_text
+        * → code-graph/src/codegraph/cli/common.py::_color_enabled
     * → code-graph/src/codegraph/cli/common.py::_with_hints
         * → code-graph/src/codegraph/cli/hints.py::generate_hints
             * → code-graph/src/codegraph/cli/hints.py::_build_next_steps
             * → code-graph/src/codegraph/cli/hints.py::_build_related
             * → code-graph/src/codegraph/cli/hints.py::_extract_warnings
-    * → code-graph/src/codegraph/query/communities.py::get_communities
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_community_member_qns
-        * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/cli/arch.py::arch_community
     * entry_point=code-graph/src/codegraph/cli/arch.py::arch_community
-    * criticality=0.7168
+    * criticality=0.5061
     * nodes=28/31
 * code-graph/src/codegraph/cli/arch.py::arch_community
-    * → code-graph/src/codegraph/cli/arch.py::_require_graph
-        * → code-graph/src/codegraph/pipeline/incremental.py::get_db_path
-            * → code-graph/src/codegraph/pipeline/incremental.py::get_data_dir
-                * → code-graph/src/codegraph/pipeline/incremental.py::_write_data_dir_gitignore
-    * → code-graph/src/codegraph/cli/common.py::_emit
-        * → code-graph/src/codegraph/cli/common.py::_color_enabled
-        * → code-graph/src/codegraph/cli/common.py::_json_text
     * → code-graph/src/codegraph/cli/common.py::_root
         * → code-graph/src/codegraph/pipeline/incremental.py::find_project_root
             * → code-graph/src/codegraph/pipeline/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/pipeline/incremental.py::find_svn_root
+    * → code-graph/src/codegraph/cli/arch.py::_require_graph
+        * → code-graph/src/codegraph/pipeline/incremental.py::get_db_path
+            * → code-graph/src/codegraph/pipeline/incremental.py::get_data_dir
+                * → code-graph/src/codegraph/pipeline/incremental.py::_write_data_dir_gitignore
     * → code-graph/src/codegraph/cli/common.py::_store
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore
+        * → code-graph/src/codegraph/pipeline/incremental.py::get_db_path
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
-        * → code-graph/src/codegraph/pipeline/incremental.py::get_db_path
+    * → code-graph/src/codegraph/query/communities.py::find_community
+        * → code-graph/src/codegraph/query/communities.py::get_communities
+            * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_community_member_qns
+        * → code-graph/src/codegraph/graph/graph_store.py::node_to_dict
+            * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_community_id
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphNode
     * → code-graph/src/codegraph/cli/common.py::_with_hints
         * → code-graph/src/codegraph/cli/hints.py::generate_hints
             * → code-graph/src/codegraph/cli/hints.py::_build_next_steps
             * → code-graph/src/codegraph/cli/hints.py::_build_related
             * → code-graph/src/codegraph/cli/hints.py::_extract_warnings
-    * → code-graph/src/codegraph/query/communities.py::find_community
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_community_id
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphNode
-        * → code-graph/src/codegraph/graph/graph_store.py::node_to_dict
-            * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
-        * → code-graph/src/codegraph/query/communities.py::get_communities
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_community_member_qns
-            * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
+    * → code-graph/src/codegraph/cli/common.py::_emit
+        * → code-graph/src/codegraph/cli/common.py::_json_text
+        * → code-graph/src/codegraph/cli/common.py::_color_enabled
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/cli/arch.py::arch_hubs
     * entry_point=code-graph/src/codegraph/cli/arch.py::arch_hubs
-    * criticality=0.7079
+    * criticality=0.4971
     * nodes=28/29
 * code-graph/src/codegraph/cli/arch.py::arch_hubs
-    * → code-graph/src/codegraph/cli/common.py::_emit
-        * → code-graph/src/codegraph/cli/common.py::_color_enabled
-        * → code-graph/src/codegraph/cli/common.py::_json_text
     * → code-graph/src/codegraph/cli/common.py::_root
         * → code-graph/src/codegraph/pipeline/incremental.py::find_project_root
             * → code-graph/src/codegraph/pipeline/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/pipeline/incremental.py::find_svn_root
     * → code-graph/src/codegraph/cli/common.py::_store
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
         * → code-graph/src/codegraph/pipeline/incremental.py::get_db_path
             * → code-graph/src/codegraph/pipeline/incremental.py::get_data_dir
                 * → code-graph/src/codegraph/pipeline/incremental.py::_write_data_dir_gitignore
-    * → code-graph/src/codegraph/cli/common.py::_with_hints
-        * → code-graph/src/codegraph/cli/hints.py::generate_hints
-            * → code-graph/src/codegraph/cli/hints.py::_build_next_steps
-            * → code-graph/src/codegraph/cli/hints.py::_build_related
-            * → code-graph/src/codegraph/cli/hints.py::_extract_warnings
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
     * → code-graph/src/codegraph/query/analysis.py::find_hub_nodes
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_community_ids
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_edges
             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
                 * → code-graph/src/codegraph/graph/graph_store.py::GraphEdge
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_nodes
             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
                 * → code-graph/src/codegraph/graph/graph_store.py::GraphNode
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_community_ids
         * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
+    * → code-graph/src/codegraph/cli/common.py::_emit
+        * → code-graph/src/codegraph/cli/common.py::_json_text
+        * → code-graph/src/codegraph/cli/common.py::_color_enabled
+    * → code-graph/src/codegraph/cli/common.py::_with_hints
+        * → code-graph/src/codegraph/cli/hints.py::generate_hints
+            * → code-graph/src/codegraph/cli/hints.py::_build_next_steps
+            * → code-graph/src/codegraph/cli/hints.py::_build_related
+            * → code-graph/src/codegraph/cli/hints.py::_extract_warnings
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/cli/arch.py::arch_overview
     * entry_point=code-graph/src/codegraph/cli/arch.py::arch_overview
-    * criticality=0.7257
+    * criticality=0.515
     * nodes=28/31
 * code-graph/src/codegraph/cli/arch.py::arch_overview
-    * → code-graph/src/codegraph/cli/arch.py::_require_graph
-        * → code-graph/src/codegraph/pipeline/incremental.py::get_db_path
-            * → code-graph/src/codegraph/pipeline/incremental.py::get_data_dir
-                * → code-graph/src/codegraph/pipeline/incremental.py::_write_data_dir_gitignore
-    * → code-graph/src/codegraph/cli/common.py::_emit
-        * → code-graph/src/codegraph/cli/common.py::_color_enabled
-        * → code-graph/src/codegraph/cli/common.py::_json_text
     * → code-graph/src/codegraph/cli/common.py::_root
         * → code-graph/src/codegraph/pipeline/incremental.py::find_project_root
             * → code-graph/src/codegraph/pipeline/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/pipeline/incremental.py::find_svn_root
+    * → code-graph/src/codegraph/cli/arch.py::_require_graph
+        * → code-graph/src/codegraph/pipeline/incremental.py::get_db_path
+            * → code-graph/src/codegraph/pipeline/incremental.py::get_data_dir
+                * → code-graph/src/codegraph/pipeline/incremental.py::_write_data_dir_gitignore
     * → code-graph/src/codegraph/cli/common.py::_store
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore
+        * → code-graph/src/codegraph/pipeline/incremental.py::get_db_path
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
-        * → code-graph/src/codegraph/pipeline/incremental.py::get_db_path
-    * → code-graph/src/codegraph/cli/common.py::_with_hints
-        * → code-graph/src/codegraph/cli/hints.py::generate_hints
-            * → code-graph/src/codegraph/cli/hints.py::_build_next_steps
-            * → code-graph/src/codegraph/cli/hints.py::_build_related
-            * → code-graph/src/codegraph/cli/hints.py::_extract_warnings
     * → code-graph/src/codegraph/query/communities.py::get_architecture_overview
+        * → code-graph/src/codegraph/query/communities.py::get_communities
+            * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_community_member_qns
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_edges
             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
                 * → code-graph/src/codegraph/graph/graph_store.py::GraphEdge
         * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
         * → code-graph/src/codegraph/query/communities.py::_is_test_community
-        * → code-graph/src/codegraph/query/communities.py::get_communities
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_community_member_qns
-            * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
+    * → code-graph/src/codegraph/cli/common.py::_emit
+        * → code-graph/src/codegraph/cli/common.py::_json_text
+        * → code-graph/src/codegraph/cli/common.py::_color_enabled
+    * → code-graph/src/codegraph/cli/common.py::_with_hints
+        * → code-graph/src/codegraph/cli/hints.py::generate_hints
+            * → code-graph/src/codegraph/cli/hints.py::_build_next_steps
+            * → code-graph/src/codegraph/cli/hints.py::_build_related
+            * → code-graph/src/codegraph/cli/hints.py::_extract_warnings
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/cli/arch.py::arch_surprises
     * entry_point=code-graph/src/codegraph/cli/arch.py::arch_surprises
-    * criticality=0.7079
+    * criticality=0.4971
     * nodes=28/29
 * code-graph/src/codegraph/cli/arch.py::arch_surprises
-    * → code-graph/src/codegraph/cli/common.py::_emit
-        * → code-graph/src/codegraph/cli/common.py::_color_enabled
-        * → code-graph/src/codegraph/cli/common.py::_json_text
     * → code-graph/src/codegraph/cli/common.py::_root
         * → code-graph/src/codegraph/pipeline/incremental.py::find_project_root
             * → code-graph/src/codegraph/pipeline/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/pipeline/incremental.py::find_svn_root
     * → code-graph/src/codegraph/cli/common.py::_store
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
         * → code-graph/src/codegraph/pipeline/incremental.py::get_db_path
             * → code-graph/src/codegraph/pipeline/incremental.py::get_data_dir
                 * → code-graph/src/codegraph/pipeline/incremental.py::_write_data_dir_gitignore
-    * → code-graph/src/codegraph/cli/common.py::_with_hints
-        * → code-graph/src/codegraph/cli/hints.py::generate_hints
-            * → code-graph/src/codegraph/cli/hints.py::_build_next_steps
-            * → code-graph/src/codegraph/cli/hints.py::_build_related
-            * → code-graph/src/codegraph/cli/hints.py::_extract_warnings
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
     * → code-graph/src/codegraph/query/analysis.py::find_surprising_connections
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_community_ids
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_edges
             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
                 * → code-graph/src/codegraph/graph/graph_store.py::GraphEdge
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_nodes
             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
                 * → code-graph/src/codegraph/graph/graph_store.py::GraphNode
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_community_ids
         * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
+    * → code-graph/src/codegraph/cli/common.py::_emit
+        * → code-graph/src/codegraph/cli/common.py::_json_text
+        * → code-graph/src/codegraph/cli/common.py::_color_enabled
+    * → code-graph/src/codegraph/cli/common.py::_with_hints
+        * → code-graph/src/codegraph/cli/hints.py::generate_hints
+            * → code-graph/src/codegraph/cli/hints.py::_build_next_steps
+            * → code-graph/src/codegraph/cli/hints.py::_build_related
+            * → code-graph/src/codegraph/cli/hints.py::_extract_warnings
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/cli/change.py::change_flows
     * entry_point=code-graph/src/codegraph/cli/change.py::change_flows
-    * criticality=0.7412
+    * criticality=0.5555
     * nodes=32/35
 * code-graph/src/codegraph/cli/change.py::change_flows
-    * → code-graph/src/codegraph/cli/common.py::_emit
-        * → code-graph/src/codegraph/cli/common.py::_color_enabled
-        * → code-graph/src/codegraph/cli/common.py::_json_text
     * → code-graph/src/codegraph/cli/common.py::_root
         * → code-graph/src/codegraph/pipeline/incremental.py::find_project_root
             * → code-graph/src/codegraph/pipeline/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/pipeline/incremental.py::find_svn_root
     * → code-graph/src/codegraph/cli/common.py::_store
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
         * → code-graph/src/codegraph/pipeline/incremental.py::get_db_path
             * → code-graph/src/codegraph/pipeline/incremental.py::get_data_dir
                 * → code-graph/src/codegraph/pipeline/incremental.py::_write_data_dir_gitignore
-    * → code-graph/src/codegraph/cli/common.py::_with_hints
-        * → code-graph/src/codegraph/cli/hints.py::generate_hints
-            * → code-graph/src/codegraph/cli/hints.py::_build_next_steps
-            * → code-graph/src/codegraph/cli/hints.py::_build_related
-            * → code-graph/src/codegraph/cli/hints.py::_extract_warnings
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
     * → code-graph/src/codegraph/query/flows.py::affected_flows
         * → code-graph/src/codegraph/pipeline/incremental.py::get_changed_files
-            * → code-graph/src/codegraph/pipeline/incremental.py::_get_svn_changed_files
             * → code-graph/src/codegraph/pipeline/incremental.py::detect_vcs
+            * → code-graph/src/codegraph/pipeline/incremental.py::_get_svn_changed_files
         * → code-graph/src/codegraph/pipeline/incremental.py::get_staged_and_unstaged
-            * → code-graph/src/codegraph/pipeline/incremental.py::_get_svn_changed_files
             * → code-graph/src/codegraph/pipeline/incremental.py::detect_vcs
+            * → code-graph/src/codegraph/pipeline/incremental.py::_get_svn_changed_files
         * → code-graph/src/codegraph/query/flows.py::get_affected_flows
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_flow_ids_by_node_ids
             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_node_ids_by_files
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_flow_ids_by_node_ids
             * → code-graph/src/codegraph/query/flows.py::get_flow_by_id
                 * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_node_by_id
                     * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
                         * → code-graph/src/codegraph/graph/graph_store.py::GraphNode
                 * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
+    * → code-graph/src/codegraph/cli/common.py::_emit
+        * → code-graph/src/codegraph/cli/common.py::_json_text
+        * → code-graph/src/codegraph/cli/common.py::_color_enabled
+    * → code-graph/src/codegraph/cli/common.py::_with_hints
+        * → code-graph/src/codegraph/cli/hints.py::generate_hints
+            * → code-graph/src/codegraph/cli/hints.py::_build_next_steps
+            * → code-graph/src/codegraph/cli/hints.py::_build_related
+            * → code-graph/src/codegraph/cli/hints.py::_extract_warnings
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/cli/change.py::change_impact
     * entry_point=code-graph/src/codegraph/cli/change.py::change_impact
-    * criticality=0.7363
+    * criticality=0.5756
     * nodes=38/48
 * code-graph/src/codegraph/cli/change.py::change_impact
-    * → code-graph/src/codegraph/cli/common.py::_emit
-        * → code-graph/src/codegraph/cli/common.py::_color_enabled
-        * → code-graph/src/codegraph/cli/common.py::_json_text
     * → code-graph/src/codegraph/cli/common.py::_root
         * → code-graph/src/codegraph/pipeline/incremental.py::find_project_root
             * → code-graph/src/codegraph/pipeline/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/pipeline/incremental.py::find_svn_root
+    * → code-graph/src/codegraph/cli/common.py::_emit
+        * → code-graph/src/codegraph/cli/common.py::_json_text
+        * → code-graph/src/codegraph/cli/common.py::_color_enabled
     * → code-graph/src/codegraph/query/analysis.py::get_impact_radius
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_impact_radius
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._get_impact_radius_networkx
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._batch_get_nodes
-                    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._build_networkx_graph
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_edges_among
-                    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
-                        * → code-graph/src/codegraph/graph/graph_store.py::GraphEdge
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_file
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_impact_radius_sql
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._batch_get_nodes
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_edges_among
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_file
-        * → code-graph/src/codegraph/graph/graph_store.py::edge_to_dict
-            * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
-        * → code-graph/src/codegraph/graph/graph_store.py::node_to_dict
-            * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
         * → code-graph/src/codegraph/lib/repo.py::open_store
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore
             * → code-graph/src/codegraph/lib/repo.py::resolve_root
                 * → code-graph/src/codegraph/lib/repo.py::validate_repo_root
                 * → code-graph/src/codegraph/pipeline/incremental.py::find_project_root
             * → code-graph/src/codegraph/pipeline/incremental.py::get_db_path
                 * → code-graph/src/codegraph/pipeline/incremental.py::get_data_dir
                     * → code-graph/src/codegraph/pipeline/incremental.py::_write_data_dir_gitignore
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore
+        * → code-graph/src/codegraph/pipeline/incremental.py::get_changed_files
+            * → code-graph/src/codegraph/pipeline/incremental.py::detect_vcs
+            * → code-graph/src/codegraph/pipeline/incremental.py::_get_svn_changed_files
+        * → code-graph/src/codegraph/pipeline/incremental.py::get_staged_and_unstaged
+            * → code-graph/src/codegraph/pipeline/incremental.py::detect_vcs
+            * → code-graph/src/codegraph/pipeline/incremental.py::_get_svn_changed_files
         * → code-graph/src/codegraph/lib/repo.py::resolve_graph_file_paths
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_files_matching
             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_file
                 * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
                     * → code-graph/src/codegraph/graph/graph_store.py::GraphNode
             * → code-graph/src/codegraph/lib/repo.py::add
-        * → code-graph/src/codegraph/pipeline/incremental.py::get_changed_files
-            * → code-graph/src/codegraph/pipeline/incremental.py::_get_svn_changed_files
-            * → code-graph/src/codegraph/pipeline/incremental.py::detect_vcs
-        * → code-graph/src/codegraph/pipeline/incremental.py::get_staged_and_unstaged
-            * → code-graph/src/codegraph/pipeline/incremental.py::_get_svn_changed_files
-            * → code-graph/src/codegraph/pipeline/incremental.py::detect_vcs
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_files_matching
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_impact_radius
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._get_impact_radius_networkx
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._build_networkx_graph
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_file
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._batch_get_nodes
+                    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_edges_among
+                    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
+                        * → code-graph/src/codegraph/graph/graph_store.py::GraphEdge
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_impact_radius_sql
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_file
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._batch_get_nodes
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_edges_among
+        * → code-graph/src/codegraph/graph/graph_store.py::node_to_dict
+            * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
+        * → code-graph/src/codegraph/graph/graph_store.py::edge_to_dict
+            * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/cli/change.py::change_risk
     * entry_point=code-graph/src/codegraph/cli/change.py::change_risk
-    * criticality=0.7147
+    * criticality=0.5968
     * nodes=51/61
 * code-graph/src/codegraph/cli/change.py::change_risk
-    * → code-graph/src/codegraph/changes.py::detect_changes
-        * → code-graph/src/codegraph/changes.py::analyze_changes
-            * → code-graph/src/codegraph/changes.py::compute_risk_score
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.count_flow_memberships
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_community_ids_by_qualified_names
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_edges_by_target
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_flow_criticalities_for_node
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_node_community_id
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_transitive_tests
-                    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._node_dict
-            * → code-graph/src/codegraph/changes.py::map_changes_to_nodes
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_files_matching
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_file
-            * → code-graph/src/codegraph/changes.py::parse_diff_ranges
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_edges_by_target
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
-                    * → code-graph/src/codegraph/graph/graph_store.py::GraphEdge
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_file
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
-                    * → code-graph/src/codegraph/graph/graph_store.py::GraphNode
-            * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
-            * → code-graph/src/codegraph/graph/graph_store.py::node_to_dict
-                * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
-            * → code-graph/src/codegraph/query/flows.py::get_affected_flows
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_flow_ids_by_node_ids
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_node_ids_by_files
-                * → code-graph/src/codegraph/query/flows.py::get_flow_by_id
-                    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_node_by_id
-                        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
-                    * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
-        * → code-graph/src/codegraph/changes.py::parse_diff_ranges
-            * → code-graph/src/codegraph/changes.py::parse_git_diff_ranges
-                * → code-graph/src/codegraph/changes.py::_parse_unified_diff
-            * → code-graph/src/codegraph/changes.py::parse_svn_diff_ranges
-                * → code-graph/src/codegraph/changes.py::_parse_unified_diff
-        * → code-graph/src/codegraph/pipeline/incremental.py::get_changed_files
-            * → code-graph/src/codegraph/pipeline/incremental.py::_get_svn_changed_files
-            * → code-graph/src/codegraph/pipeline/incremental.py::detect_vcs
-        * → code-graph/src/codegraph/pipeline/incremental.py::get_staged_and_unstaged
-            * → code-graph/src/codegraph/pipeline/incremental.py::_get_svn_changed_files
-            * → code-graph/src/codegraph/pipeline/incremental.py::detect_vcs
-    * → code-graph/src/codegraph/cli/common.py::_emit
-        * → code-graph/src/codegraph/cli/common.py::_color_enabled
-        * → code-graph/src/codegraph/cli/common.py::_json_text
     * → code-graph/src/codegraph/cli/common.py::_root
         * → code-graph/src/codegraph/pipeline/incremental.py::find_project_root
             * → code-graph/src/codegraph/pipeline/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/pipeline/incremental.py::find_svn_root
     * → code-graph/src/codegraph/cli/common.py::_store
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
         * → code-graph/src/codegraph/pipeline/incremental.py::get_db_path
             * → code-graph/src/codegraph/pipeline/incremental.py::get_data_dir
                 * → code-graph/src/codegraph/pipeline/incremental.py::_write_data_dir_gitignore
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
+    * → code-graph/src/codegraph/changes.py::detect_changes
+        * → code-graph/src/codegraph/pipeline/incremental.py::get_changed_files
+            * → code-graph/src/codegraph/pipeline/incremental.py::detect_vcs
+            * → code-graph/src/codegraph/pipeline/incremental.py::_get_svn_changed_files
+        * → code-graph/src/codegraph/pipeline/incremental.py::get_staged_and_unstaged
+            * → code-graph/src/codegraph/pipeline/incremental.py::detect_vcs
+            * → code-graph/src/codegraph/pipeline/incremental.py::_get_svn_changed_files
+        * → code-graph/src/codegraph/changes.py::parse_diff_ranges
+            * → code-graph/src/codegraph/changes.py::parse_svn_diff_ranges
+                * → code-graph/src/codegraph/changes.py::_parse_unified_diff
+            * → code-graph/src/codegraph/changes.py::parse_git_diff_ranges
+                * → code-graph/src/codegraph/changes.py::_parse_unified_diff
+        * → code-graph/src/codegraph/changes.py::analyze_changes
+            * → code-graph/src/codegraph/changes.py::parse_diff_ranges
+            * → code-graph/src/codegraph/changes.py::map_changes_to_nodes
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_file
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_files_matching
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_file
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
+                    * → code-graph/src/codegraph/graph/graph_store.py::GraphNode
+            * → code-graph/src/codegraph/changes.py::compute_risk_score
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_flow_criticalities_for_node
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.count_flow_memberships
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_edges_by_target
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_node_community_id
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_community_ids_by_qualified_names
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_transitive_tests
+                    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._node_dict
+            * → code-graph/src/codegraph/graph/graph_store.py::node_to_dict
+                * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
+            * → code-graph/src/codegraph/query/flows.py::get_affected_flows
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_node_ids_by_files
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_flow_ids_by_node_ids
+                * → code-graph/src/codegraph/query/flows.py::get_flow_by_id
+                    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_node_by_id
+                        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
+                    * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_edges_by_target
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
+                    * → code-graph/src/codegraph/graph/graph_store.py::GraphEdge
+            * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
+    * → code-graph/src/codegraph/cli/common.py::_emit
+        * → code-graph/src/codegraph/cli/common.py::_json_text
+        * → code-graph/src/codegraph/cli/common.py::_color_enabled
     * → code-graph/src/codegraph/cli/common.py::_with_hints
         * → code-graph/src/codegraph/cli/hints.py::generate_hints
             * → code-graph/src/codegraph/cli/hints.py::_build_next_steps
@@ -786,206 +802,195 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/cli/flows.py::flows_list
     * entry_point=code-graph/src/codegraph/cli/flows.py::flows_list
-    * criticality=0.7163
+    * criticality=0.5056
     * nodes=19/19
 * code-graph/src/codegraph/cli/flows.py::flows_list
-    * → code-graph/src/codegraph/cli/common.py::_emit
-        * → code-graph/src/codegraph/cli/common.py::_color_enabled
-        * → code-graph/src/codegraph/cli/common.py::_json_text
     * → code-graph/src/codegraph/cli/common.py::_root
         * → code-graph/src/codegraph/pipeline/incremental.py::find_project_root
             * → code-graph/src/codegraph/pipeline/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/pipeline/incremental.py::find_svn_root
+    * → code-graph/src/codegraph/pipeline/incremental.py::get_db_path
+        * → code-graph/src/codegraph/pipeline/incremental.py::get_data_dir
+            * → code-graph/src/codegraph/pipeline/incremental.py::_write_data_dir_gitignore
+    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore
+    * → code-graph/src/codegraph/query/flows.py::get_flows
+        * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
+    * → code-graph/src/codegraph/cli/common.py::_emit
+        * → code-graph/src/codegraph/cli/common.py::_json_text
+        * → code-graph/src/codegraph/cli/common.py::_color_enabled
     * → code-graph/src/codegraph/cli/common.py::_with_hints
         * → code-graph/src/codegraph/cli/hints.py::generate_hints
             * → code-graph/src/codegraph/cli/hints.py::_build_next_steps
             * → code-graph/src/codegraph/cli/hints.py::_build_related
             * → code-graph/src/codegraph/cli/hints.py::_extract_warnings
-    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore
-    * → code-graph/src/codegraph/pipeline/incremental.py::get_db_path
-        * → code-graph/src/codegraph/pipeline/incremental.py::get_data_dir
-            * → code-graph/src/codegraph/pipeline/incremental.py::_write_data_dir_gitignore
-    * → code-graph/src/codegraph/query/flows.py::get_flows
-        * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/cli/flows.py::flows_show
     * entry_point=code-graph/src/codegraph/cli/flows.py::flows_show
-    * criticality=0.7127
+    * criticality=0.502
     * nodes=22/22
 * code-graph/src/codegraph/cli/flows.py::flows_show
-    * → code-graph/src/codegraph/cli/common.py::_emit
-        * → code-graph/src/codegraph/cli/common.py::_color_enabled
-        * → code-graph/src/codegraph/cli/common.py::_json_text
     * → code-graph/src/codegraph/cli/common.py::_root
         * → code-graph/src/codegraph/pipeline/incremental.py::find_project_root
             * → code-graph/src/codegraph/pipeline/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/pipeline/incremental.py::find_svn_root
-    * → code-graph/src/codegraph/cli/common.py::_with_hints
-        * → code-graph/src/codegraph/cli/hints.py::generate_hints
-            * → code-graph/src/codegraph/cli/hints.py::_build_next_steps
-            * → code-graph/src/codegraph/cli/hints.py::_build_related
-            * → code-graph/src/codegraph/cli/hints.py::_extract_warnings
-    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore
     * → code-graph/src/codegraph/pipeline/incremental.py::get_db_path
         * → code-graph/src/codegraph/pipeline/incremental.py::get_data_dir
             * → code-graph/src/codegraph/pipeline/incremental.py::_write_data_dir_gitignore
+    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore
     * → code-graph/src/codegraph/query/flows.py::get_flow_by_id
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_node_by_id
             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
                 * → code-graph/src/codegraph/graph/graph_store.py::GraphNode
         * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
+    * → code-graph/src/codegraph/cli/common.py::_emit
+        * → code-graph/src/codegraph/cli/common.py::_json_text
+        * → code-graph/src/codegraph/cli/common.py::_color_enabled
+    * → code-graph/src/codegraph/cli/common.py::_with_hints
+        * → code-graph/src/codegraph/cli/hints.py::generate_hints
+            * → code-graph/src/codegraph/cli/hints.py::_build_next_steps
+            * → code-graph/src/codegraph/cli/hints.py::_build_related
+            * → code-graph/src/codegraph/cli/hints.py::_extract_warnings
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/cli/health.py::dead_code
     * entry_point=code-graph/src/codegraph/cli/health.py::dead_code
-    * criticality=0.7103
+    * criticality=0.5424
     * nodes=37/44
 * code-graph/src/codegraph/cli/health.py::dead_code
-    * → code-graph/src/codegraph/cli/common.py::_emit
-        * → code-graph/src/codegraph/cli/common.py::_color_enabled
-        * → code-graph/src/codegraph/cli/common.py::_json_text
     * → code-graph/src/codegraph/cli/common.py::_root
         * → code-graph/src/codegraph/pipeline/incremental.py::find_project_root
             * → code-graph/src/codegraph/pipeline/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/pipeline/incremental.py::find_svn_root
     * → code-graph/src/codegraph/cli/common.py::_store
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
         * → code-graph/src/codegraph/pipeline/incremental.py::get_db_path
             * → code-graph/src/codegraph/pipeline/incremental.py::get_data_dir
                 * → code-graph/src/codegraph/pipeline/incremental.py::_write_data_dir_gitignore
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
+    * → code-graph/src/codegraph/refactor.py::find_dead_code
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_kind
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphNode
+        * → code-graph/src/codegraph/refactor.py::_collect_type_referenced_names
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_kind
+        * → code-graph/src/codegraph/refactor.py::_is_test_file
+        * → code-graph/src/codegraph/refactor.py::_is_entry_point
+            * → code-graph/src/codegraph/query/flows.py::_has_framework_decorator
+            * → code-graph/src/codegraph/query/flows.py::_matches_entry_name
+        * → code-graph/src/codegraph/query/flows.py::_has_framework_decorator
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_edges_by_source
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_node
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_edges_by_target
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.search_edges_by_target_name
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphEdge
+        * → code-graph/src/codegraph/refactor.py::_is_plausible_caller
+            * → code-graph/src/codegraph/refactor.py::_path_segments
+        * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
+    * → code-graph/src/codegraph/cli/common.py::_emit
+        * → code-graph/src/codegraph/cli/common.py::_json_text
+        * → code-graph/src/codegraph/cli/common.py::_color_enabled
     * → code-graph/src/codegraph/cli/common.py::_with_hints
         * → code-graph/src/codegraph/cli/hints.py::generate_hints
             * → code-graph/src/codegraph/cli/hints.py::_build_next_steps
             * → code-graph/src/codegraph/cli/hints.py::_build_related
             * → code-graph/src/codegraph/cli/hints.py::_extract_warnings
-    * → code-graph/src/codegraph/refactor.py::find_dead_code
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphEdge
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_edges_by_source
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_edges_by_target
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_node
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphNode
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_kind
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.search_edges_by_target_name
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
-        * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
-        * → code-graph/src/codegraph/query/flows.py::_has_framework_decorator
-        * → code-graph/src/codegraph/refactor.py::_collect_type_referenced_names
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_kind
-        * → code-graph/src/codegraph/refactor.py::_is_entry_point
-            * → code-graph/src/codegraph/query/flows.py::_has_framework_decorator
-            * → code-graph/src/codegraph/query/flows.py::_matches_entry_name
-        * → code-graph/src/codegraph/refactor.py::_is_plausible_caller
-            * → code-graph/src/codegraph/refactor.py::_path_segments
-        * → code-graph/src/codegraph/refactor.py::_is_test_file
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/cli/health.py::knowledge_gaps
     * entry_point=code-graph/src/codegraph/cli/health.py::knowledge_gaps
-    * criticality=0.7072
+    * criticality=0.4965
     * nodes=29/30
 * code-graph/src/codegraph/cli/health.py::knowledge_gaps
-    * → code-graph/src/codegraph/cli/common.py::_emit
-        * → code-graph/src/codegraph/cli/common.py::_color_enabled
-        * → code-graph/src/codegraph/cli/common.py::_json_text
     * → code-graph/src/codegraph/cli/common.py::_root
         * → code-graph/src/codegraph/pipeline/incremental.py::find_project_root
             * → code-graph/src/codegraph/pipeline/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/pipeline/incremental.py::find_svn_root
     * → code-graph/src/codegraph/cli/common.py::_store
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
         * → code-graph/src/codegraph/pipeline/incremental.py::get_db_path
             * → code-graph/src/codegraph/pipeline/incremental.py::get_data_dir
                 * → code-graph/src/codegraph/pipeline/incremental.py::_write_data_dir_gitignore
-    * → code-graph/src/codegraph/cli/common.py::_with_hints
-        * → code-graph/src/codegraph/cli/hints.py::generate_hints
-            * → code-graph/src/codegraph/cli/hints.py::_build_next_steps
-            * → code-graph/src/codegraph/cli/hints.py::_build_related
-            * → code-graph/src/codegraph/cli/hints.py::_extract_warnings
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
     * → code-graph/src/codegraph/query/analysis.py::find_knowledge_gaps
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_community_ids
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_edges
             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
                 * → code-graph/src/codegraph/graph/graph_store.py::GraphEdge
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_nodes
             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
                 * → code-graph/src/codegraph/graph/graph_store.py::GraphNode
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_communities_list
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_community_ids
         * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_communities_list
+    * → code-graph/src/codegraph/cli/common.py::_emit
+        * → code-graph/src/codegraph/cli/common.py::_json_text
+        * → code-graph/src/codegraph/cli/common.py::_color_enabled
+    * → code-graph/src/codegraph/cli/common.py::_with_hints
+        * → code-graph/src/codegraph/cli/hints.py::generate_hints
+            * → code-graph/src/codegraph/cli/hints.py::_build_next_steps
+            * → code-graph/src/codegraph/cli/hints.py::_build_related
+            * → code-graph/src/codegraph/cli/hints.py::_extract_warnings
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/cli/health.py::large_functions
     * entry_point=code-graph/src/codegraph/cli/health.py::large_functions
-    * criticality=0.7341
+    * criticality=0.5234
     * nodes=22/24
 * code-graph/src/codegraph/cli/health.py::large_functions
-    * → code-graph/src/codegraph/cli/common.py::_emit
-        * → code-graph/src/codegraph/cli/common.py::_color_enabled
-        * → code-graph/src/codegraph/cli/common.py::_json_text
     * → code-graph/src/codegraph/cli/common.py::_root
         * → code-graph/src/codegraph/pipeline/incremental.py::find_project_root
             * → code-graph/src/codegraph/pipeline/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/pipeline/incremental.py::find_svn_root
+    * → code-graph/src/codegraph/cli/common.py::_emit
+        * → code-graph/src/codegraph/cli/common.py::_json_text
+        * → code-graph/src/codegraph/cli/common.py::_color_enabled
     * → code-graph/src/codegraph/query/analysis.py::find_large_functions
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_size
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphNode
-        * → code-graph/src/codegraph/graph/graph_store.py::node_to_dict
-            * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
         * → code-graph/src/codegraph/lib/repo.py::open_store
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore
             * → code-graph/src/codegraph/lib/repo.py::resolve_root
                 * → code-graph/src/codegraph/lib/repo.py::validate_repo_root
                 * → code-graph/src/codegraph/pipeline/incremental.py::find_project_root
             * → code-graph/src/codegraph/pipeline/incremental.py::get_db_path
                 * → code-graph/src/codegraph/pipeline/incremental.py::get_data_dir
                     * → code-graph/src/codegraph/pipeline/incremental.py::_write_data_dir_gitignore
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_size
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphNode
+        * → code-graph/src/codegraph/graph/graph_store.py::node_to_dict
+            * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/cli/health.py::suggested_questions
     * entry_point=code-graph/src/codegraph/cli/health.py::suggested_questions
-    * criticality=0.7441
+    * criticality=0.5584
     * nodes=34/47
 * code-graph/src/codegraph/cli/health.py::suggested_questions
-    * → code-graph/src/codegraph/cli/common.py::_emit
-        * → code-graph/src/codegraph/cli/common.py::_color_enabled
-        * → code-graph/src/codegraph/cli/common.py::_json_text
     * → code-graph/src/codegraph/cli/common.py::_root
         * → code-graph/src/codegraph/pipeline/incremental.py::find_project_root
             * → code-graph/src/codegraph/pipeline/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/pipeline/incremental.py::find_svn_root
     * → code-graph/src/codegraph/cli/common.py::_store
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
         * → code-graph/src/codegraph/pipeline/incremental.py::get_db_path
             * → code-graph/src/codegraph/pipeline/incremental.py::get_data_dir
                 * → code-graph/src/codegraph/pipeline/incremental.py::_write_data_dir_gitignore
-    * → code-graph/src/codegraph/cli/common.py::_with_hints
-        * → code-graph/src/codegraph/cli/hints.py::generate_hints
-            * → code-graph/src/codegraph/cli/hints.py::_build_next_steps
-            * → code-graph/src/codegraph/cli/hints.py::_build_related
-            * → code-graph/src/codegraph/cli/hints.py::_extract_warnings
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
     * → code-graph/src/codegraph/query/analysis.py::generate_suggested_questions
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_edges
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphEdge
         * → code-graph/src/codegraph/query/analysis.py::find_bridge_nodes
             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._build_networkx_graph
             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_community_ids
@@ -994,1120 +999,1133 @@ listed twice is a re-encountered call whose subtree was not walked again. All
                     * → code-graph/src/codegraph/graph/graph_store.py::GraphNode
             * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
         * → code-graph/src/codegraph/query/analysis.py::find_hub_nodes
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_community_ids
             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_edges
             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_nodes
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_community_ids
+            * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_edges
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphEdge
+        * → code-graph/src/codegraph/query/analysis.py::find_surprising_connections
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_edges
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_nodes
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_community_ids
             * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
         * → code-graph/src/codegraph/query/analysis.py::find_knowledge_gaps
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_community_ids
             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_edges
             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_nodes
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_community_ids
+            * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_communities_list
-            * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
-        * → code-graph/src/codegraph/query/analysis.py::find_surprising_connections
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_community_ids
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_edges
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_nodes
-            * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
+    * → code-graph/src/codegraph/cli/common.py::_emit
+        * → code-graph/src/codegraph/cli/common.py::_json_text
+        * → code-graph/src/codegraph/cli/common.py::_color_enabled
+    * → code-graph/src/codegraph/cli/common.py::_with_hints
+        * → code-graph/src/codegraph/cli/hints.py::generate_hints
+            * → code-graph/src/codegraph/cli/hints.py::_build_next_steps
+            * → code-graph/src/codegraph/cli/hints.py::_build_related
+            * → code-graph/src/codegraph/cli/hints.py::_extract_warnings
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/cli/lifecycle.py::build
     * entry_point=code-graph/src/codegraph/cli/lifecycle.py::build
     * criticality=0.7668
-    * nodes=224/457
+    * nodes=224/458
 * code-graph/src/codegraph/cli/lifecycle.py::build
-    * → code-graph/src/codegraph/cli/common.py::_emit
-        * → code-graph/src/codegraph/cli/common.py::_color_enabled
-        * → code-graph/src/codegraph/cli/common.py::_json_text
     * → code-graph/src/codegraph/cli/common.py::_root
         * → code-graph/src/codegraph/pipeline/incremental.py::find_project_root
             * → code-graph/src/codegraph/pipeline/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/pipeline/incremental.py::find_svn_root
     * → code-graph/src/codegraph/cli/common.py::_store
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
         * → code-graph/src/codegraph/pipeline/incremental.py::get_db_path
             * → code-graph/src/codegraph/pipeline/incremental.py::get_data_dir
                 * → code-graph/src/codegraph/pipeline/incremental.py::_write_data_dir_gitignore
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
     * → code-graph/src/codegraph/pipeline/build.py::build_or_update
         * → code-graph/src/codegraph/pipeline/incremental.py::full_build
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.commit
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.commit
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser
+            * → code-graph/src/codegraph/pipeline/incremental.py::collect_all_files
+                * → code-graph/src/codegraph/pipeline/incremental.py::_load_ignore_patterns
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser
+                * → code-graph/src/codegraph/pipeline/incremental.py::get_all_tracked_files
+                    * → code-graph/src/codegraph/pipeline/incremental.py::detect_vcs
+                    * → code-graph/src/codegraph/pipeline/incremental.py::_get_svn_all_tracked_files
+                * → code-graph/src/codegraph/pipeline/incremental.py::_get_candidates
+                    * → code-graph/src/codegraph/pipeline/incremental.py::_should_ignore
+                * → code-graph/src/codegraph/pipeline/incremental.py::_should_ignore
+                * → code-graph/src/codegraph/pipeline/incremental.py::_is_binary
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser.detect_language
             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_files
             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.remove_file_data
                 * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._invalidate_cache
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.set_metadata
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.commit
                 * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.commit
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser
+            * → code-graph/src/codegraph/pipeline/incremental.py::_PendingWrites
+            * → code-graph/src/codegraph/pipeline/incremental.py::_store_batch_size
             * → code-graph/src/codegraph/parsing/parser.py::CodeParser.parse_bytes
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser.detect_language
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_vue
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_parser
+                    * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
+                    * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_file_scope
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                    * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_svelte
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_parser
+                    * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
+                    * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_file_scope
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                    * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_notebook
+                    * → code-graph/src/codegraph/parsing/parser.py::CellInfo
+                    * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                    * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_notebook_cells
+                        * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
+                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_parser
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_file_scope
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_targets
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_databricks_py_notebook
+                    * → code-graph/src/codegraph/parsing/parser.py::CellInfo
+                    * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                    * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_notebook_cells
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_rescript
+                    * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
+                    * → code-graph/src/codegraph/parsing/parser.py::_strip_rescript_noise
+                    * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                    * → code-graph/src/codegraph/parsing/parser.py::_scan_rescript_modules
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser.offset_to_line
+                    * → code-graph/src/codegraph/parsing/parser.py::_rescript_brace_depth_array
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser.enclosing_module
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser.is_top_level
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser.offset_to_line
+                    * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
+                        * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
+                    * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_targets
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_sql
+                    * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
+                    * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_parser
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._walk_sql_tree
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_sql_ddl
+                            * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._walk_sql_tree
+                    * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_parser
+                * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
+                * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
                 * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_file_scope
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_import_names
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_js_import_names
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_js_exported_local_names
                     * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_name
                         * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_name
                         * → code-graph/src/codegraph/parsing/parser.py::CodeParser._leaf_name
                             * → code-graph/src/codegraph/parsing/parser.py::CodeParser._leaf_name
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_js_exported_local_names
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_import_names
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_js_import_names
                 * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_type_bindings
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._simple_type_name
                     * → code-graph/src/codegraph/parsing/parser.py::CodeParser.bind
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._simple_type_name
                 * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_bash_source_command
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_pascal_constructs
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_pascal_unit
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._pascal_dir_listing
+                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._pascal_type_name
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._pascal_proc_name
+                        * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._pascal_params
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._pascal_return_type
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._pascal_call_parts
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_target
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_imported_symbol
+                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
+                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_exported_symbol
+                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser.detect_language
+                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_parser
+                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_file_scope
+                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_imported_symbol
+                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
+                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_exported_symbol
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_r_constructs
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._handle_r_binary_operator
+                            * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
+                            * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_call_func_name
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._handle_r_class_call
+                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_first_string_arg
+                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                                * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                                * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_find_named_arg
+                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_iter_args
+                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_r_methods
+                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_iter_args
+                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
+                                    * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                                    * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._handle_r_call
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_call_func_name
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_import
+                            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._handle_r_class_call
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_call_name
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_target
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_lua_constructs
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._handle_lua_variable_declaration
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._lua_get_require_target
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
+                            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                            * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
+                            * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._handle_lua_table_function
+                            * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
+                            * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._lua_get_require_target
                         * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
                             * → code-graph/src/codegraph/parsing/parser.py::CodeParser._do_resolve_module
                                 * → code-graph/src/codegraph/parsing/parser.py::CodeParser._find_dart_pubspec_root
                         * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_calls
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_base_call_name
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_call_name
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_custom_call_name
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._normalize_php_name
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_call_receiver
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_java_method_and_receiver
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_test_description
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_target
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_imported_symbol
-                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_exported_symbol
-                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_file_scope
-                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_parser
-                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_exported_symbol
-                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_imported_symbol
-                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
-                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser.detect_language
-                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
-                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_classes
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_kafka_edges_from_class
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_spring_injections
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_spring_constructor_injection
-                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_java_annotations
-                                * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_spring_field_injection
-                                * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_temporal_stub_fields
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_bases
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_class_decorators
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_java_annotations
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_name
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_dart_calls_from_children
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_bash_source_command
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
                         * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
                     * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_elixir_constructs
                         * → code-graph/src/codegraph/parsing/parser.py::CodeParser._elixir_call_identifier
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._elixir_function_name_and_params
                         * → code-graph/src/codegraph/parsing/parser.py::CodeParser._elixir_module_name
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
                         * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._elixir_function_name_and_params
+                        * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
                         * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_target
-                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_functions
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_kafka_edges_from_method
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_kafka_annotation_topics
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_go_receiver_type
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_name
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_return_type
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_imports
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_import
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._find_string_literal
-                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._find_string_literal
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._import_path_text
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_call_func_name
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_first_string_arg
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_iter_args
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
-                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_js_field_function
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_js_var_functions
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_return_type
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_jsx_component_call
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_jsx_component_target
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_jsx_component_reference
-                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_member_expression_root_name
-                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_member_expression_root_name
-                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._looks_like_component_name
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_target
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_imported_symbol
-                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_julia_constructs
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._julia_call_first_identifier
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._julia_short_func_name
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._julia_string_arg
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
-                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_lua_constructs
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._handle_lua_table_function
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                            * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                            * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._handle_lua_variable_declaration
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._lua_get_require_target
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
-                            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                            * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                            * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._lua_get_require_target
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
-                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
                     * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_nix_constructs
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._nix_attrpath_parts
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._is_nix_flake_file
+                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
                         * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_nix_flake_input_urls
                             * → code-graph/src/codegraph/parsing/parser.py::CodeParser.visit
                                 * → code-graph/src/codegraph/parsing/parser.py::CodeParser._nix_attrpath_parts
-                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser.first_path_arg
-                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser.head_call_name
                                 * → code-graph/src/codegraph/parsing/parser.py::CodeParser.visit
+                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser.head_call_name
+                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser.first_path_arg
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
                         * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_nix_import_targets
                             * → code-graph/src/codegraph/parsing/parser.py::CodeParser.visit
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._is_nix_flake_file
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._nix_attrpath_parts
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_julia_constructs
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._julia_short_func_name
+                        * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
                         * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._julia_call_first_identifier
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._julia_string_arg
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_dart_calls_from_children
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_js_var_functions
+                        * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_return_type
+                        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_classes
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_name
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_class_decorators
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_java_annotations
+                        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_bases
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_spring_injections
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_spring_field_injection
+                                * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_spring_constructor_injection
+                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_java_annotations
+                                * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_temporal_stub_fields
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_kafka_edges_from_class
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_js_field_function
+                        * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
+                        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_functions
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_name
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_go_receiver_type
+                        * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_return_type
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_kafka_edges_from_method
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_kafka_annotation_topics
+                            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_imports
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_import
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_call_func_name
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_iter_args
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_first_string_arg
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._find_string_literal
+                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._find_string_literal
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._import_path_text
                         * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
                         * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_pascal_constructs
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._pascal_call_parts
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._pascal_params
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._pascal_proc_name
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._pascal_return_type
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._pascal_type_name
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_calls
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_call_name
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._normalize_php_name
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_custom_call_name
+                        * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_base_call_name
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_test_description
                         * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_target
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_pascal_unit
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._pascal_dir_listing
-                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
                         * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_r_constructs
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._handle_r_binary_operator
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._handle_r_class_call
-                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_r_methods
-                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
-                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_iter_args
-                                    * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                                    * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_find_named_arg
-                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_iter_args
-                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_first_string_arg
-                                * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                                * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_call_func_name
-                            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                            * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                            * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._handle_r_call
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_import
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_call_name
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._handle_r_class_call
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_call_func_name
+                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_java_method_and_receiver
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_call_receiver
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_target
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_jsx_component_call
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_jsx_component_target
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_jsx_component_reference
+                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._looks_like_component_name
+                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_member_expression_root_name
+                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_member_expression_root_name
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_target
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_imported_symbol
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_value_references
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._ref_from_pair
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_reference_if_known
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_reference_if_known
                             * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_target
                             * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._ref_from_assignment
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_reference_if_known
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._ref_from_array
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_reference_if_known
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._ref_from_arguments
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_reference_if_known
                     * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_solidity_constructs
                         * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
                         * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
                         * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_value_references
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_reference_if_known
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_target
-                            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._ref_from_arguments
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_reference_if_known
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._ref_from_array
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_reference_if_known
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._ref_from_assignment
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_reference_if_known
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._ref_from_pair
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_reference_if_known
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_parser
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_databricks_py_notebook
-                    * → code-graph/src/codegraph/parsing/parser.py::CellInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_notebook_cells
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_file_scope
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_parser
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_targets
-                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
-                    * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_notebook
-                    * → code-graph/src/codegraph/parsing/parser.py::CellInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_notebook_cells
-                    * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_rescript
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_targets
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser.enclosing_module
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser.is_top_level
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser.offset_to_line
-                    * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
-                    * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
-                        * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
-                    * → code-graph/src/codegraph/parsing/parser.py::_rescript_brace_depth_array
-                    * → code-graph/src/codegraph/parsing/parser.py::_scan_rescript_modules
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser.offset_to_line
-                    * → code-graph/src/codegraph/parsing/parser.py::_strip_rescript_noise
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_sql
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_parser
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._walk_sql_tree
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_sql_ddl
-                            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                            * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._walk_sql_tree
-                    * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_svelte
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_file_scope
                     * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_parser
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                    * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_vue
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_file_scope
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_parser
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                    * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
                 * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_targets
                     * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
                     * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser.detect_language
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
                 * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
-            * → code-graph/src/codegraph/pipeline/incremental.py::_PendingWrites
             * → code-graph/src/codegraph/pipeline/incremental.py::_PendingWrites.add
                 * → code-graph/src/codegraph/pipeline/incremental.py::_PendingWrites.flush
-            * → code-graph/src/codegraph/pipeline/incremental.py::_PendingWrites.flush
             * → code-graph/src/codegraph/pipeline/incremental.py::_make_executor
                 * → code-graph/src/codegraph/pipeline/incremental.py::_select_executor_kind
-            * → code-graph/src/codegraph/pipeline/incremental.py::_run_receiver_resolver
-                * → code-graph/src/codegraph/resolvers/receivers.py::resolve_typed_receivers
+            * → code-graph/src/codegraph/pipeline/incremental.py::_PendingWrites.flush
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.set_metadata
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.commit
+            * → code-graph/src/codegraph/pipeline/incremental.py::_store_vcs_metadata
+                * → code-graph/src/codegraph/pipeline/incremental.py::detect_vcs
+                * → code-graph/src/codegraph/pipeline/incremental.py::_git_branch_info
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.set_metadata
+                * → code-graph/src/codegraph/pipeline/incremental.py::_svn_revision_info
             * → code-graph/src/codegraph/pipeline/incremental.py::_run_rescript_resolver
                 * → code-graph/src/codegraph/resolvers/rescript.py::resolve_rescript_cross_module
-                    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._invalidate_cache
                     * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_files
                     * → code-graph/src/codegraph/resolvers/rescript.py::_resolve_call_target
-                        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_node
-                            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
                         * → code-graph/src/codegraph/resolvers/rescript.py::_pick_existing_qualified
                             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_node
+                        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_node
+                            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
+                    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._invalidate_cache
             * → code-graph/src/codegraph/pipeline/incremental.py::_run_spring_resolver
                 * → code-graph/src/codegraph/resolvers/spring.py::resolve_spring_di_calls
             * → code-graph/src/codegraph/pipeline/incremental.py::_run_temporal_resolver
                 * → code-graph/src/codegraph/resolvers/temporal.py::resolve_temporal_calls
-            * → code-graph/src/codegraph/pipeline/incremental.py::_store_batch_size
-            * → code-graph/src/codegraph/pipeline/incremental.py::_store_vcs_metadata
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.set_metadata
-                * → code-graph/src/codegraph/pipeline/incremental.py::_git_branch_info
-                * → code-graph/src/codegraph/pipeline/incremental.py::_svn_revision_info
-                * → code-graph/src/codegraph/pipeline/incremental.py::detect_vcs
-            * → code-graph/src/codegraph/pipeline/incremental.py::collect_all_files
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser.detect_language
-                * → code-graph/src/codegraph/pipeline/incremental.py::_get_candidates
-                    * → code-graph/src/codegraph/pipeline/incremental.py::_should_ignore
-                * → code-graph/src/codegraph/pipeline/incremental.py::_is_binary
-                * → code-graph/src/codegraph/pipeline/incremental.py::_load_ignore_patterns
-                * → code-graph/src/codegraph/pipeline/incremental.py::_should_ignore
-                * → code-graph/src/codegraph/pipeline/incremental.py::get_all_tracked_files
-                    * → code-graph/src/codegraph/pipeline/incremental.py::_get_svn_all_tracked_files
-                    * → code-graph/src/codegraph/pipeline/incremental.py::detect_vcs
-        * → code-graph/src/codegraph/pipeline/incremental.py::incremental_update
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.commit
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_file
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
-                    * → code-graph/src/codegraph/graph/graph_store.py::GraphNode
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.remove_file_data
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.set_metadata
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser.detect_language
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._detect_language_from_shebang
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser.parse_bytes
-            * → code-graph/src/codegraph/pipeline/incremental.py::_PendingWrites
-            * → code-graph/src/codegraph/pipeline/incremental.py::_PendingWrites.add
-            * → code-graph/src/codegraph/pipeline/incremental.py::_PendingWrites.flush
-            * → code-graph/src/codegraph/pipeline/incremental.py::_load_ignore_patterns
-            * → code-graph/src/codegraph/pipeline/incremental.py::_make_executor
             * → code-graph/src/codegraph/pipeline/incremental.py::_run_receiver_resolver
-            * → code-graph/src/codegraph/pipeline/incremental.py::_run_rescript_resolver
-            * → code-graph/src/codegraph/pipeline/incremental.py::_run_spring_resolver
-            * → code-graph/src/codegraph/pipeline/incremental.py::_run_temporal_resolver
-            * → code-graph/src/codegraph/pipeline/incremental.py::_should_ignore
-                * → code-graph/src/codegraph/pipeline/incremental.py::_is_match
-            * → code-graph/src/codegraph/pipeline/incremental.py::_store_batch_size
-            * → code-graph/src/codegraph/pipeline/incremental.py::_store_vcs_metadata
+                * → code-graph/src/codegraph/resolvers/receivers.py::resolve_typed_receivers
+        * → code-graph/src/codegraph/pipeline/incremental.py::incremental_update
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser
+            * → code-graph/src/codegraph/pipeline/incremental.py::_load_ignore_patterns
+            * → code-graph/src/codegraph/pipeline/incremental.py::get_changed_files
+                * → code-graph/src/codegraph/pipeline/incremental.py::detect_vcs
+                * → code-graph/src/codegraph/pipeline/incremental.py::_get_svn_changed_files
             * → code-graph/src/codegraph/pipeline/incremental.py::find_dependents
-                * → code-graph/src/codegraph/pipeline/incremental.py::DependentList
                 * → code-graph/src/codegraph/pipeline/incremental.py::_single_hop_dependents
                     * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_edges_by_target
                         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
                             * → code-graph/src/codegraph/graph/graph_store.py::GraphEdge
                     * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_file
-            * → code-graph/src/codegraph/pipeline/incremental.py::get_changed_files
-                * → code-graph/src/codegraph/pipeline/incremental.py::_get_svn_changed_files
-                * → code-graph/src/codegraph/pipeline/incremental.py::detect_vcs
-        * → code-graph/src/codegraph/pipeline/postprocessing.py::run_post_processing
+                * → code-graph/src/codegraph/pipeline/incremental.py::DependentList
+            * → code-graph/src/codegraph/pipeline/incremental.py::_should_ignore
+                * → code-graph/src/codegraph/pipeline/incremental.py::_is_match
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.remove_file_data
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser.detect_language
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._detect_language_from_shebang
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_file
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
+                    * → code-graph/src/codegraph/graph/graph_store.py::GraphNode
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.commit
+            * → code-graph/src/codegraph/pipeline/incremental.py::_PendingWrites
+            * → code-graph/src/codegraph/pipeline/incremental.py::_store_batch_size
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser.parse_bytes
+            * → code-graph/src/codegraph/pipeline/incremental.py::_PendingWrites.add
+            * → code-graph/src/codegraph/pipeline/incremental.py::_make_executor
+            * → code-graph/src/codegraph/pipeline/incremental.py::_PendingWrites.flush
             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.set_metadata
+            * → code-graph/src/codegraph/pipeline/incremental.py::_store_vcs_metadata
+            * → code-graph/src/codegraph/pipeline/incremental.py::_run_rescript_resolver
+            * → code-graph/src/codegraph/pipeline/incremental.py::_run_spring_resolver
+            * → code-graph/src/codegraph/pipeline/incremental.py::_run_temporal_resolver
+            * → code-graph/src/codegraph/pipeline/incremental.py::_run_receiver_resolver
+        * → code-graph/src/codegraph/pipeline/postprocessing.py::run_post_processing
             * → code-graph/src/codegraph/pipeline/postprocessing.py::_compute_signatures
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.commit
                 * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_without_signature
                 * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.update_node_signature
-            * → code-graph/src/codegraph/pipeline/postprocessing.py::_compute_summaries
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.commit
+            * → code-graph/src/codegraph/pipeline/postprocessing.py::_rebuild_fts_index
+                * → code-graph/src/codegraph/query/search.py::rebuild_fts_index
+            * → code-graph/src/codegraph/pipeline/postprocessing.py::_trace_flows
+                * → code-graph/src/codegraph/query/flows.py::incremental_trace_flows
+                    * → code-graph/src/codegraph/query/flows.py::detect_entry_points
+                        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_call_targets
+                        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_kind
+                            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
+                        * → code-graph/src/codegraph/query/flows.py::_is_test_file
+                        * → code-graph/src/codegraph/query/flows.py::_has_framework_decorator
+                        * → code-graph/src/codegraph/query/flows.py::_matches_entry_name
+                    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.load_flow_adjacency
+                        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
+                        * → code-graph/src/codegraph/graph/graph_store.py::FlowAdjacency
+                    * → code-graph/src/codegraph/query/flows.py::_trace_single_flow
+                        * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
+                        * → code-graph/src/codegraph/query/flows.py::compute_criticality
+                * → code-graph/src/codegraph/query/flows.py::store_flows
+                * → code-graph/src/codegraph/query/flows.py::trace_flows
+                    * → code-graph/src/codegraph/query/flows.py::detect_entry_points
+                    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.load_flow_adjacency
+                    * → code-graph/src/codegraph/query/flows.py::_trace_single_flow
             * → code-graph/src/codegraph/pipeline/postprocessing.py::_detect_communities
+                * → code-graph/src/codegraph/query/communities.py::incremental_detect_communities
+                    * → code-graph/src/codegraph/query/communities.py::detect_communities
+                    * → code-graph/src/codegraph/query/communities.py::store_communities
+                * → code-graph/src/codegraph/query/communities.py::store_communities
                 * → code-graph/src/codegraph/query/communities.py::detect_communities
                     * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_edges
                         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
                     * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_nodes
                         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
                     * → code-graph/src/codegraph/query/communities.py::_build_adjacency
-                    * → code-graph/src/codegraph/query/communities.py::_detect_file_based
+                    * → code-graph/src/codegraph/query/communities.py::_detect_leiden
+                        * → code-graph/src/codegraph/query/communities.py::_detect_file_based
                         * → code-graph/src/codegraph/query/communities.py::_compute_cohesion_batch
                         * → code-graph/src/codegraph/query/communities.py::_generate_community_name
                             * → code-graph/src/codegraph/query/communities.py::_extract_file_prefix
                                 * → code-graph/src/codegraph/query/communities.py::_to_slug
+                            * → code-graph/src/codegraph/query/communities.py::_to_slug
                             * → code-graph/src/codegraph/query/communities.py::_extract_keywords
                                 * → code-graph/src/codegraph/query/communities.py::_split_name
-                            * → code-graph/src/codegraph/query/communities.py::_to_slug
+                    * → code-graph/src/codegraph/query/communities.py::_detect_file_based
                         * → code-graph/src/codegraph/query/communities.py::_group_at_depth
-                    * → code-graph/src/codegraph/query/communities.py::_detect_leiden
                         * → code-graph/src/codegraph/query/communities.py::_compute_cohesion_batch
-                        * → code-graph/src/codegraph/query/communities.py::_detect_file_based
                         * → code-graph/src/codegraph/query/communities.py::_generate_community_name
                     * → code-graph/src/codegraph/query/communities.py::_split_oversized
-                * → code-graph/src/codegraph/query/communities.py::incremental_detect_communities
-                    * → code-graph/src/codegraph/query/communities.py::detect_communities
-                    * → code-graph/src/codegraph/query/communities.py::store_communities
-                * → code-graph/src/codegraph/query/communities.py::store_communities
-            * → code-graph/src/codegraph/pipeline/postprocessing.py::_rebuild_fts_index
-                * → code-graph/src/codegraph/query/search.py::rebuild_fts_index
-            * → code-graph/src/codegraph/pipeline/postprocessing.py::_trace_flows
-                * → code-graph/src/codegraph/query/flows.py::incremental_trace_flows
-                    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.load_flow_adjacency
-                        * → code-graph/src/codegraph/graph/graph_store.py::FlowAdjacency
-                        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
-                    * → code-graph/src/codegraph/query/flows.py::_trace_single_flow
-                        * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
-                        * → code-graph/src/codegraph/query/flows.py::compute_criticality
-                    * → code-graph/src/codegraph/query/flows.py::detect_entry_points
-                        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_call_targets
-                        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_kind
-                            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
-                        * → code-graph/src/codegraph/query/flows.py::_has_framework_decorator
-                        * → code-graph/src/codegraph/query/flows.py::_is_test_file
-                        * → code-graph/src/codegraph/query/flows.py::_matches_entry_name
-                * → code-graph/src/codegraph/query/flows.py::store_flows
-                * → code-graph/src/codegraph/query/flows.py::trace_flows
-                    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.load_flow_adjacency
-                    * → code-graph/src/codegraph/query/flows.py::_trace_single_flow
-                    * → code-graph/src/codegraph/query/flows.py::detect_entry_points
+            * → code-graph/src/codegraph/pipeline/postprocessing.py::_compute_summaries
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.set_metadata
+    * → code-graph/src/codegraph/cli/common.py::_emit
+        * → code-graph/src/codegraph/cli/common.py::_json_text
+        * → code-graph/src/codegraph/cli/common.py::_color_enabled
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/cli/lifecycle.py::export_graph
     * entry_point=code-graph/src/codegraph/cli/lifecycle.py::export_graph
-    * criticality=0.7398
+    * criticality=0.5969
     * nodes=42/54
 * code-graph/src/codegraph/cli/lifecycle.py::export_graph
-    * → code-graph/src/codegraph/cli/common.py::_emit
-        * → code-graph/src/codegraph/cli/common.py::_color_enabled
-        * → code-graph/src/codegraph/cli/common.py::_json_text
-    * → code-graph/src/codegraph/cli/common.py::_json_text
     * → code-graph/src/codegraph/cli/common.py::_root
         * → code-graph/src/codegraph/pipeline/incremental.py::find_project_root
             * → code-graph/src/codegraph/pipeline/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/pipeline/incremental.py::find_svn_root
+    * → code-graph/src/codegraph/pipeline/export.py::canonical_graph_type
+        * → code-graph/src/codegraph/pipeline/export.py::GraphTypeError
     * → code-graph/src/codegraph/cli/lifecycle.py::_export_payload
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore
-        * → code-graph/src/codegraph/pipeline/export.py::build_payload
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_metadata
-            * → code-graph/src/codegraph/pipeline/export.py::_call_graph_payload
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_edges
-                    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
-                        * → code-graph/src/codegraph/graph/graph_store.py::GraphEdge
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_nodes
-                    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
-                        * → code-graph/src/codegraph/graph/graph_store.py::GraphNode
-                * → code-graph/src/codegraph/graph/graph_store.py::edge_to_dict
-                    * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
-                * → code-graph/src/codegraph/graph/graph_store.py::node_to_dict
-                    * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
-            * → code-graph/src/codegraph/pipeline/export.py::_community_payload
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_nodes
-                * → code-graph/src/codegraph/pipeline/export.py::community_key
-                * → code-graph/src/codegraph/query/communities.py::get_architecture_overview
-                    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_edges
-                    * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
-                    * → code-graph/src/codegraph/query/communities.py::_is_test_community
-                    * → code-graph/src/codegraph/query/communities.py::get_communities
-                        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_community_member_qns
-                        * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
-            * → code-graph/src/codegraph/pipeline/export.py::_flows_payload
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_node_by_id
-                    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.load_flow_adjacency
-                    * → code-graph/src/codegraph/graph/graph_store.py::FlowAdjacency
-                    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
-                * → code-graph/src/codegraph/pipeline/export.py::_flow_tree
-                * → code-graph/src/codegraph/pipeline/export.py::_tree_size
-                    * → code-graph/src/codegraph/pipeline/export.py::_tree_size
-                * → code-graph/src/codegraph/pipeline/export.py::flow_key
-                * → code-graph/src/codegraph/query/flows.py::get_flows
-                    * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
-            * → code-graph/src/codegraph/pipeline/export.py::canonical_graph_type
         * → code-graph/src/codegraph/pipeline/incremental.py::get_db_path
             * → code-graph/src/codegraph/pipeline/incremental.py::get_data_dir
                 * → code-graph/src/codegraph/pipeline/incremental.py::_write_data_dir_gitignore
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore
+        * → code-graph/src/codegraph/pipeline/export.py::build_payload
+            * → code-graph/src/codegraph/pipeline/export.py::canonical_graph_type
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_metadata
+            * → code-graph/src/codegraph/pipeline/export.py::_community_payload
+                * → code-graph/src/codegraph/query/communities.py::get_architecture_overview
+                    * → code-graph/src/codegraph/query/communities.py::get_communities
+                        * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
+                        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_community_member_qns
+                    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_edges
+                    * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
+                    * → code-graph/src/codegraph/query/communities.py::_is_test_community
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_nodes
+                    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
+                        * → code-graph/src/codegraph/graph/graph_store.py::GraphNode
+                * → code-graph/src/codegraph/pipeline/export.py::community_key
+            * → code-graph/src/codegraph/pipeline/export.py::_flows_payload
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.load_flow_adjacency
+                    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
+                    * → code-graph/src/codegraph/graph/graph_store.py::FlowAdjacency
+                * → code-graph/src/codegraph/query/flows.py::get_flows
+                    * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_node_by_id
+                    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
+                * → code-graph/src/codegraph/pipeline/export.py::_flow_tree
+                * → code-graph/src/codegraph/pipeline/export.py::flow_key
+                * → code-graph/src/codegraph/pipeline/export.py::_tree_size
+                    * → code-graph/src/codegraph/pipeline/export.py::_tree_size
+            * → code-graph/src/codegraph/pipeline/export.py::_call_graph_payload
+                * → code-graph/src/codegraph/graph/graph_store.py::node_to_dict
+                    * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_nodes
+                * → code-graph/src/codegraph/graph/graph_store.py::edge_to_dict
+                    * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_edges
+                    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
+                        * → code-graph/src/codegraph/graph/graph_store.py::GraphEdge
+    * → code-graph/src/codegraph/cli/common.py::_json_text
     * → code-graph/src/codegraph/cli/lifecycle.py::_write_json
         * → code-graph/src/codegraph/cli/common.py::_json_text
-    * → code-graph/src/codegraph/pipeline/export.py::canonical_graph_type
-        * → code-graph/src/codegraph/pipeline/export.py::GraphTypeError
+    * → code-graph/src/codegraph/cli/common.py::_emit
+        * → code-graph/src/codegraph/cli/common.py::_json_text
+        * → code-graph/src/codegraph/cli/common.py::_color_enabled
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/cli/lifecycle.py::status
     * entry_point=code-graph/src/codegraph/cli/lifecycle.py::status
-    * criticality=0.7313
+    * criticality=0.5205
     * nodes=16/17
 * code-graph/src/codegraph/cli/lifecycle.py::status
-    * → code-graph/src/codegraph/cli/common.py::_emit
-        * → code-graph/src/codegraph/cli/common.py::_color_enabled
-        * → code-graph/src/codegraph/cli/common.py::_json_text
     * → code-graph/src/codegraph/cli/common.py::_root
         * → code-graph/src/codegraph/pipeline/incremental.py::find_project_root
             * → code-graph/src/codegraph/pipeline/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/pipeline/incremental.py::find_svn_root
+    * → code-graph/src/codegraph/cli/common.py::_emit
+        * → code-graph/src/codegraph/cli/common.py::_json_text
+        * → code-graph/src/codegraph/cli/common.py::_color_enabled
     * → code-graph/src/codegraph/query/queries.py::list_graph_stats
         * → code-graph/src/codegraph/lib/repo.py::open_store
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore
             * → code-graph/src/codegraph/lib/repo.py::resolve_root
                 * → code-graph/src/codegraph/lib/repo.py::validate_repo_root
                 * → code-graph/src/codegraph/pipeline/incremental.py::find_project_root
             * → code-graph/src/codegraph/pipeline/incremental.py::get_db_path
                 * → code-graph/src/codegraph/pipeline/incremental.py::get_data_dir
                     * → code-graph/src/codegraph/pipeline/incremental.py::_write_data_dir_gitignore
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/cli/lifecycle.py::update
     * entry_point=code-graph/src/codegraph/cli/lifecycle.py::update
     * criticality=0.7668
-    * nodes=224/457
+    * nodes=224/458
 * code-graph/src/codegraph/cli/lifecycle.py::update
-    * → code-graph/src/codegraph/cli/common.py::_emit
-        * → code-graph/src/codegraph/cli/common.py::_color_enabled
-        * → code-graph/src/codegraph/cli/common.py::_json_text
     * → code-graph/src/codegraph/cli/common.py::_root
         * → code-graph/src/codegraph/pipeline/incremental.py::find_project_root
             * → code-graph/src/codegraph/pipeline/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/pipeline/incremental.py::find_svn_root
     * → code-graph/src/codegraph/cli/common.py::_store
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
         * → code-graph/src/codegraph/pipeline/incremental.py::get_db_path
             * → code-graph/src/codegraph/pipeline/incremental.py::get_data_dir
                 * → code-graph/src/codegraph/pipeline/incremental.py::_write_data_dir_gitignore
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
     * → code-graph/src/codegraph/pipeline/build.py::build_or_update
         * → code-graph/src/codegraph/pipeline/incremental.py::full_build
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.commit
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.commit
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser
+            * → code-graph/src/codegraph/pipeline/incremental.py::collect_all_files
+                * → code-graph/src/codegraph/pipeline/incremental.py::_load_ignore_patterns
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser
+                * → code-graph/src/codegraph/pipeline/incremental.py::get_all_tracked_files
+                    * → code-graph/src/codegraph/pipeline/incremental.py::detect_vcs
+                    * → code-graph/src/codegraph/pipeline/incremental.py::_get_svn_all_tracked_files
+                * → code-graph/src/codegraph/pipeline/incremental.py::_get_candidates
+                    * → code-graph/src/codegraph/pipeline/incremental.py::_should_ignore
+                * → code-graph/src/codegraph/pipeline/incremental.py::_should_ignore
+                * → code-graph/src/codegraph/pipeline/incremental.py::_is_binary
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser.detect_language
             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_files
             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.remove_file_data
                 * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._invalidate_cache
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.set_metadata
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.commit
                 * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.commit
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser
+            * → code-graph/src/codegraph/pipeline/incremental.py::_PendingWrites
+            * → code-graph/src/codegraph/pipeline/incremental.py::_store_batch_size
             * → code-graph/src/codegraph/parsing/parser.py::CodeParser.parse_bytes
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser.detect_language
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_vue
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_parser
+                    * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
+                    * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_file_scope
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                    * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_svelte
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_parser
+                    * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
+                    * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_file_scope
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                    * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_notebook
+                    * → code-graph/src/codegraph/parsing/parser.py::CellInfo
+                    * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                    * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_notebook_cells
+                        * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
+                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_parser
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_file_scope
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_targets
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_databricks_py_notebook
+                    * → code-graph/src/codegraph/parsing/parser.py::CellInfo
+                    * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                    * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_notebook_cells
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_rescript
+                    * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
+                    * → code-graph/src/codegraph/parsing/parser.py::_strip_rescript_noise
+                    * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                    * → code-graph/src/codegraph/parsing/parser.py::_scan_rescript_modules
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser.offset_to_line
+                    * → code-graph/src/codegraph/parsing/parser.py::_rescript_brace_depth_array
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser.enclosing_module
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser.is_top_level
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser.offset_to_line
+                    * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
+                        * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
+                    * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_targets
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_sql
+                    * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
+                    * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_parser
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._walk_sql_tree
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_sql_ddl
+                            * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._walk_sql_tree
+                    * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_parser
+                * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
+                * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
                 * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_file_scope
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_import_names
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_js_import_names
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_js_exported_local_names
                     * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_name
                         * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_name
                         * → code-graph/src/codegraph/parsing/parser.py::CodeParser._leaf_name
                             * → code-graph/src/codegraph/parsing/parser.py::CodeParser._leaf_name
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_js_exported_local_names
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_import_names
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_js_import_names
                 * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_type_bindings
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._simple_type_name
                     * → code-graph/src/codegraph/parsing/parser.py::CodeParser.bind
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._simple_type_name
                 * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_bash_source_command
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_pascal_constructs
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_pascal_unit
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._pascal_dir_listing
+                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._pascal_type_name
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._pascal_proc_name
+                        * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._pascal_params
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._pascal_return_type
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._pascal_call_parts
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_target
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_imported_symbol
+                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
+                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_exported_symbol
+                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser.detect_language
+                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_parser
+                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_file_scope
+                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_imported_symbol
+                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
+                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_exported_symbol
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_r_constructs
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._handle_r_binary_operator
+                            * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
+                            * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_call_func_name
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._handle_r_class_call
+                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_first_string_arg
+                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                                * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                                * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_find_named_arg
+                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_iter_args
+                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_r_methods
+                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_iter_args
+                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
+                                    * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                                    * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._handle_r_call
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_call_func_name
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_import
+                            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._handle_r_class_call
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_call_name
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_target
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_lua_constructs
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._handle_lua_variable_declaration
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._lua_get_require_target
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
+                            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                            * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
+                            * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._handle_lua_table_function
+                            * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
+                            * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._lua_get_require_target
                         * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
                             * → code-graph/src/codegraph/parsing/parser.py::CodeParser._do_resolve_module
                                 * → code-graph/src/codegraph/parsing/parser.py::CodeParser._find_dart_pubspec_root
                         * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_calls
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_base_call_name
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_call_name
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_custom_call_name
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._normalize_php_name
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_call_receiver
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_java_method_and_receiver
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_test_description
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_target
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_imported_symbol
-                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_exported_symbol
-                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_file_scope
-                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_parser
-                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_exported_symbol
-                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_imported_symbol
-                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
-                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser.detect_language
-                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
-                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_classes
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_kafka_edges_from_class
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_spring_injections
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_spring_constructor_injection
-                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_java_annotations
-                                * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_spring_field_injection
-                                * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_temporal_stub_fields
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_bases
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_class_decorators
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_java_annotations
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_name
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_dart_calls_from_children
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_bash_source_command
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
                         * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
                     * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_elixir_constructs
                         * → code-graph/src/codegraph/parsing/parser.py::CodeParser._elixir_call_identifier
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._elixir_function_name_and_params
                         * → code-graph/src/codegraph/parsing/parser.py::CodeParser._elixir_module_name
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
                         * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._elixir_function_name_and_params
+                        * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
                         * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_target
-                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_functions
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_kafka_edges_from_method
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_kafka_annotation_topics
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_go_receiver_type
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_name
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_return_type
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_imports
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_import
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._find_string_literal
-                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._find_string_literal
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._import_path_text
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_call_func_name
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_first_string_arg
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_iter_args
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
-                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_js_field_function
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_js_var_functions
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_return_type
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_jsx_component_call
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_jsx_component_target
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_jsx_component_reference
-                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_member_expression_root_name
-                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_member_expression_root_name
-                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._looks_like_component_name
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_target
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_imported_symbol
-                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_julia_constructs
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._julia_call_first_identifier
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._julia_short_func_name
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._julia_string_arg
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
-                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_lua_constructs
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._handle_lua_table_function
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                            * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                            * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._handle_lua_variable_declaration
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._lua_get_require_target
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
-                            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                            * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                            * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._lua_get_require_target
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
-                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
                     * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_nix_constructs
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._nix_attrpath_parts
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._is_nix_flake_file
+                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
                         * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_nix_flake_input_urls
                             * → code-graph/src/codegraph/parsing/parser.py::CodeParser.visit
                                 * → code-graph/src/codegraph/parsing/parser.py::CodeParser._nix_attrpath_parts
-                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser.first_path_arg
-                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser.head_call_name
                                 * → code-graph/src/codegraph/parsing/parser.py::CodeParser.visit
+                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser.head_call_name
+                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser.first_path_arg
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
                         * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_nix_import_targets
                             * → code-graph/src/codegraph/parsing/parser.py::CodeParser.visit
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._is_nix_flake_file
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._nix_attrpath_parts
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_julia_constructs
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._julia_short_func_name
+                        * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
                         * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._julia_call_first_identifier
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._julia_string_arg
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_dart_calls_from_children
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_js_var_functions
+                        * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_return_type
+                        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_classes
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_name
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_class_decorators
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_java_annotations
+                        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_bases
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_spring_injections
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_spring_field_injection
+                                * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_spring_constructor_injection
+                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_java_annotations
+                                * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_temporal_stub_fields
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_kafka_edges_from_class
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_js_field_function
+                        * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
+                        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_functions
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_name
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_go_receiver_type
+                        * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_return_type
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_kafka_edges_from_method
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_kafka_annotation_topics
+                            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_imports
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_import
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_call_func_name
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_iter_args
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_first_string_arg
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._find_string_literal
+                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._find_string_literal
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._import_path_text
                         * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
                         * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_pascal_constructs
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._pascal_call_parts
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._pascal_params
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._pascal_proc_name
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._pascal_return_type
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._pascal_type_name
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_calls
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_call_name
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._normalize_php_name
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_custom_call_name
+                        * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_base_call_name
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_test_description
                         * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_target
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_pascal_unit
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._pascal_dir_listing
-                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
                         * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_r_constructs
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._handle_r_binary_operator
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._handle_r_class_call
-                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_r_methods
-                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
-                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_iter_args
-                                    * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                                    * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_find_named_arg
-                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_iter_args
-                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_first_string_arg
-                                * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                                * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_call_func_name
-                            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                            * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                            * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._handle_r_call
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_import
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_call_name
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._handle_r_class_call
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_call_func_name
+                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_java_method_and_receiver
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_call_receiver
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_target
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_jsx_component_call
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_jsx_component_target
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_jsx_component_reference
+                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._looks_like_component_name
+                                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_member_expression_root_name
+                                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_member_expression_root_name
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_target
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_imported_symbol
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_value_references
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._ref_from_pair
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_reference_if_known
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_reference_if_known
                             * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_target
                             * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._ref_from_assignment
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_reference_if_known
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._ref_from_array
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_reference_if_known
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._ref_from_arguments
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_reference_if_known
                     * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_solidity_constructs
                         * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
                         * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
                         * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_value_references
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_reference_if_known
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_target
-                            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._ref_from_arguments
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_reference_if_known
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._ref_from_array
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_reference_if_known
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._ref_from_assignment
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_reference_if_known
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._ref_from_pair
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_reference_if_known
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_parser
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_databricks_py_notebook
-                    * → code-graph/src/codegraph/parsing/parser.py::CellInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_notebook_cells
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_file_scope
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_parser
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_targets
-                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
-                    * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_notebook
-                    * → code-graph/src/codegraph/parsing/parser.py::CellInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_notebook_cells
-                    * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_rescript
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_targets
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser.enclosing_module
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser.is_top_level
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser.offset_to_line
-                    * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
-                    * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
-                        * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
-                    * → code-graph/src/codegraph/parsing/parser.py::_rescript_brace_depth_array
-                    * → code-graph/src/codegraph/parsing/parser.py::_scan_rescript_modules
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser.offset_to_line
-                    * → code-graph/src/codegraph/parsing/parser.py::_strip_rescript_noise
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_sql
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_parser
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._walk_sql_tree
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_sql_ddl
-                            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                            * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._walk_sql_tree
-                    * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_svelte
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_file_scope
                     * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_parser
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                    * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_vue
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_file_scope
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_parser
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                    * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
                 * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_targets
                     * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
                     * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser.detect_language
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
                 * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
-            * → code-graph/src/codegraph/pipeline/incremental.py::_PendingWrites
             * → code-graph/src/codegraph/pipeline/incremental.py::_PendingWrites.add
                 * → code-graph/src/codegraph/pipeline/incremental.py::_PendingWrites.flush
-            * → code-graph/src/codegraph/pipeline/incremental.py::_PendingWrites.flush
             * → code-graph/src/codegraph/pipeline/incremental.py::_make_executor
                 * → code-graph/src/codegraph/pipeline/incremental.py::_select_executor_kind
-            * → code-graph/src/codegraph/pipeline/incremental.py::_run_receiver_resolver
-                * → code-graph/src/codegraph/resolvers/receivers.py::resolve_typed_receivers
+            * → code-graph/src/codegraph/pipeline/incremental.py::_PendingWrites.flush
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.set_metadata
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.commit
+            * → code-graph/src/codegraph/pipeline/incremental.py::_store_vcs_metadata
+                * → code-graph/src/codegraph/pipeline/incremental.py::detect_vcs
+                * → code-graph/src/codegraph/pipeline/incremental.py::_git_branch_info
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.set_metadata
+                * → code-graph/src/codegraph/pipeline/incremental.py::_svn_revision_info
             * → code-graph/src/codegraph/pipeline/incremental.py::_run_rescript_resolver
                 * → code-graph/src/codegraph/resolvers/rescript.py::resolve_rescript_cross_module
-                    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._invalidate_cache
                     * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_files
                     * → code-graph/src/codegraph/resolvers/rescript.py::_resolve_call_target
-                        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_node
-                            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
                         * → code-graph/src/codegraph/resolvers/rescript.py::_pick_existing_qualified
                             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_node
+                        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_node
+                            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
+                    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._invalidate_cache
             * → code-graph/src/codegraph/pipeline/incremental.py::_run_spring_resolver
                 * → code-graph/src/codegraph/resolvers/spring.py::resolve_spring_di_calls
             * → code-graph/src/codegraph/pipeline/incremental.py::_run_temporal_resolver
                 * → code-graph/src/codegraph/resolvers/temporal.py::resolve_temporal_calls
-            * → code-graph/src/codegraph/pipeline/incremental.py::_store_batch_size
-            * → code-graph/src/codegraph/pipeline/incremental.py::_store_vcs_metadata
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.set_metadata
-                * → code-graph/src/codegraph/pipeline/incremental.py::_git_branch_info
-                * → code-graph/src/codegraph/pipeline/incremental.py::_svn_revision_info
-                * → code-graph/src/codegraph/pipeline/incremental.py::detect_vcs
-            * → code-graph/src/codegraph/pipeline/incremental.py::collect_all_files
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser.detect_language
-                * → code-graph/src/codegraph/pipeline/incremental.py::_get_candidates
-                    * → code-graph/src/codegraph/pipeline/incremental.py::_should_ignore
-                * → code-graph/src/codegraph/pipeline/incremental.py::_is_binary
-                * → code-graph/src/codegraph/pipeline/incremental.py::_load_ignore_patterns
-                * → code-graph/src/codegraph/pipeline/incremental.py::_should_ignore
-                * → code-graph/src/codegraph/pipeline/incremental.py::get_all_tracked_files
-                    * → code-graph/src/codegraph/pipeline/incremental.py::_get_svn_all_tracked_files
-                    * → code-graph/src/codegraph/pipeline/incremental.py::detect_vcs
-        * → code-graph/src/codegraph/pipeline/incremental.py::incremental_update
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.commit
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_file
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
-                    * → code-graph/src/codegraph/graph/graph_store.py::GraphNode
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.remove_file_data
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.set_metadata
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser.detect_language
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._detect_language_from_shebang
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser.parse_bytes
-            * → code-graph/src/codegraph/pipeline/incremental.py::_PendingWrites
-            * → code-graph/src/codegraph/pipeline/incremental.py::_PendingWrites.add
-            * → code-graph/src/codegraph/pipeline/incremental.py::_PendingWrites.flush
-            * → code-graph/src/codegraph/pipeline/incremental.py::_load_ignore_patterns
-            * → code-graph/src/codegraph/pipeline/incremental.py::_make_executor
             * → code-graph/src/codegraph/pipeline/incremental.py::_run_receiver_resolver
-            * → code-graph/src/codegraph/pipeline/incremental.py::_run_rescript_resolver
-            * → code-graph/src/codegraph/pipeline/incremental.py::_run_spring_resolver
-            * → code-graph/src/codegraph/pipeline/incremental.py::_run_temporal_resolver
-            * → code-graph/src/codegraph/pipeline/incremental.py::_should_ignore
-                * → code-graph/src/codegraph/pipeline/incremental.py::_is_match
-            * → code-graph/src/codegraph/pipeline/incremental.py::_store_batch_size
-            * → code-graph/src/codegraph/pipeline/incremental.py::_store_vcs_metadata
+                * → code-graph/src/codegraph/resolvers/receivers.py::resolve_typed_receivers
+        * → code-graph/src/codegraph/pipeline/incremental.py::incremental_update
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser
+            * → code-graph/src/codegraph/pipeline/incremental.py::_load_ignore_patterns
+            * → code-graph/src/codegraph/pipeline/incremental.py::get_changed_files
+                * → code-graph/src/codegraph/pipeline/incremental.py::detect_vcs
+                * → code-graph/src/codegraph/pipeline/incremental.py::_get_svn_changed_files
             * → code-graph/src/codegraph/pipeline/incremental.py::find_dependents
-                * → code-graph/src/codegraph/pipeline/incremental.py::DependentList
                 * → code-graph/src/codegraph/pipeline/incremental.py::_single_hop_dependents
                     * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_edges_by_target
                         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
                             * → code-graph/src/codegraph/graph/graph_store.py::GraphEdge
                     * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_file
-            * → code-graph/src/codegraph/pipeline/incremental.py::get_changed_files
-                * → code-graph/src/codegraph/pipeline/incremental.py::_get_svn_changed_files
-                * → code-graph/src/codegraph/pipeline/incremental.py::detect_vcs
-        * → code-graph/src/codegraph/pipeline/postprocessing.py::run_post_processing
+                * → code-graph/src/codegraph/pipeline/incremental.py::DependentList
+            * → code-graph/src/codegraph/pipeline/incremental.py::_should_ignore
+                * → code-graph/src/codegraph/pipeline/incremental.py::_is_match
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.remove_file_data
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser.detect_language
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._detect_language_from_shebang
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_file
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
+                    * → code-graph/src/codegraph/graph/graph_store.py::GraphNode
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.commit
+            * → code-graph/src/codegraph/pipeline/incremental.py::_PendingWrites
+            * → code-graph/src/codegraph/pipeline/incremental.py::_store_batch_size
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser.parse_bytes
+            * → code-graph/src/codegraph/pipeline/incremental.py::_PendingWrites.add
+            * → code-graph/src/codegraph/pipeline/incremental.py::_make_executor
+            * → code-graph/src/codegraph/pipeline/incremental.py::_PendingWrites.flush
             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.set_metadata
+            * → code-graph/src/codegraph/pipeline/incremental.py::_store_vcs_metadata
+            * → code-graph/src/codegraph/pipeline/incremental.py::_run_rescript_resolver
+            * → code-graph/src/codegraph/pipeline/incremental.py::_run_spring_resolver
+            * → code-graph/src/codegraph/pipeline/incremental.py::_run_temporal_resolver
+            * → code-graph/src/codegraph/pipeline/incremental.py::_run_receiver_resolver
+        * → code-graph/src/codegraph/pipeline/postprocessing.py::run_post_processing
             * → code-graph/src/codegraph/pipeline/postprocessing.py::_compute_signatures
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.commit
                 * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_without_signature
                 * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.update_node_signature
-            * → code-graph/src/codegraph/pipeline/postprocessing.py::_compute_summaries
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.commit
+            * → code-graph/src/codegraph/pipeline/postprocessing.py::_rebuild_fts_index
+                * → code-graph/src/codegraph/query/search.py::rebuild_fts_index
+            * → code-graph/src/codegraph/pipeline/postprocessing.py::_trace_flows
+                * → code-graph/src/codegraph/query/flows.py::incremental_trace_flows
+                    * → code-graph/src/codegraph/query/flows.py::detect_entry_points
+                        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_call_targets
+                        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_kind
+                            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
+                        * → code-graph/src/codegraph/query/flows.py::_is_test_file
+                        * → code-graph/src/codegraph/query/flows.py::_has_framework_decorator
+                        * → code-graph/src/codegraph/query/flows.py::_matches_entry_name
+                    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.load_flow_adjacency
+                        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
+                        * → code-graph/src/codegraph/graph/graph_store.py::FlowAdjacency
+                    * → code-graph/src/codegraph/query/flows.py::_trace_single_flow
+                        * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
+                        * → code-graph/src/codegraph/query/flows.py::compute_criticality
+                * → code-graph/src/codegraph/query/flows.py::store_flows
+                * → code-graph/src/codegraph/query/flows.py::trace_flows
+                    * → code-graph/src/codegraph/query/flows.py::detect_entry_points
+                    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.load_flow_adjacency
+                    * → code-graph/src/codegraph/query/flows.py::_trace_single_flow
             * → code-graph/src/codegraph/pipeline/postprocessing.py::_detect_communities
+                * → code-graph/src/codegraph/query/communities.py::incremental_detect_communities
+                    * → code-graph/src/codegraph/query/communities.py::detect_communities
+                    * → code-graph/src/codegraph/query/communities.py::store_communities
+                * → code-graph/src/codegraph/query/communities.py::store_communities
                 * → code-graph/src/codegraph/query/communities.py::detect_communities
                     * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_edges
                         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
                     * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_nodes
                         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
                     * → code-graph/src/codegraph/query/communities.py::_build_adjacency
-                    * → code-graph/src/codegraph/query/communities.py::_detect_file_based
+                    * → code-graph/src/codegraph/query/communities.py::_detect_leiden
+                        * → code-graph/src/codegraph/query/communities.py::_detect_file_based
                         * → code-graph/src/codegraph/query/communities.py::_compute_cohesion_batch
                         * → code-graph/src/codegraph/query/communities.py::_generate_community_name
                             * → code-graph/src/codegraph/query/communities.py::_extract_file_prefix
                                 * → code-graph/src/codegraph/query/communities.py::_to_slug
+                            * → code-graph/src/codegraph/query/communities.py::_to_slug
                             * → code-graph/src/codegraph/query/communities.py::_extract_keywords
                                 * → code-graph/src/codegraph/query/communities.py::_split_name
-                            * → code-graph/src/codegraph/query/communities.py::_to_slug
+                    * → code-graph/src/codegraph/query/communities.py::_detect_file_based
                         * → code-graph/src/codegraph/query/communities.py::_group_at_depth
-                    * → code-graph/src/codegraph/query/communities.py::_detect_leiden
                         * → code-graph/src/codegraph/query/communities.py::_compute_cohesion_batch
-                        * → code-graph/src/codegraph/query/communities.py::_detect_file_based
                         * → code-graph/src/codegraph/query/communities.py::_generate_community_name
                     * → code-graph/src/codegraph/query/communities.py::_split_oversized
-                * → code-graph/src/codegraph/query/communities.py::incremental_detect_communities
-                    * → code-graph/src/codegraph/query/communities.py::detect_communities
-                    * → code-graph/src/codegraph/query/communities.py::store_communities
-                * → code-graph/src/codegraph/query/communities.py::store_communities
-            * → code-graph/src/codegraph/pipeline/postprocessing.py::_rebuild_fts_index
-                * → code-graph/src/codegraph/query/search.py::rebuild_fts_index
-            * → code-graph/src/codegraph/pipeline/postprocessing.py::_trace_flows
-                * → code-graph/src/codegraph/query/flows.py::incremental_trace_flows
-                    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.load_flow_adjacency
-                        * → code-graph/src/codegraph/graph/graph_store.py::FlowAdjacency
-                        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
-                    * → code-graph/src/codegraph/query/flows.py::_trace_single_flow
-                        * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
-                        * → code-graph/src/codegraph/query/flows.py::compute_criticality
-                    * → code-graph/src/codegraph/query/flows.py::detect_entry_points
-                        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_all_call_targets
-                        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_kind
-                            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
-                        * → code-graph/src/codegraph/query/flows.py::_has_framework_decorator
-                        * → code-graph/src/codegraph/query/flows.py::_is_test_file
-                        * → code-graph/src/codegraph/query/flows.py::_matches_entry_name
-                * → code-graph/src/codegraph/query/flows.py::store_flows
-                * → code-graph/src/codegraph/query/flows.py::trace_flows
-                    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.load_flow_adjacency
-                    * → code-graph/src/codegraph/query/flows.py::_trace_single_flow
-                    * → code-graph/src/codegraph/query/flows.py::detect_entry_points
+            * → code-graph/src/codegraph/pipeline/postprocessing.py::_compute_summaries
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.set_metadata
+    * → code-graph/src/codegraph/cli/common.py::_emit
+        * → code-graph/src/codegraph/cli/common.py::_json_text
+        * → code-graph/src/codegraph/cli/common.py::_color_enabled
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/cli/lookup.py::query
     * entry_point=code-graph/src/codegraph/cli/lookup.py::query
-    * criticality=0.74
+    * criticality=0.5293
     * nodes=25/27
 * code-graph/src/codegraph/cli/lookup.py::query
-    * → code-graph/src/codegraph/cli/common.py::_emit
-        * → code-graph/src/codegraph/cli/common.py::_color_enabled
-        * → code-graph/src/codegraph/cli/common.py::_json_text
     * → code-graph/src/codegraph/cli/common.py::_root
         * → code-graph/src/codegraph/pipeline/incremental.py::find_project_root
             * → code-graph/src/codegraph/pipeline/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/pipeline/incremental.py::find_svn_root
+    * → code-graph/src/codegraph/cli/common.py::_emit
+        * → code-graph/src/codegraph/cli/common.py::_json_text
+        * → code-graph/src/codegraph/cli/common.py::_color_enabled
     * → code-graph/src/codegraph/query/queries.py::query_graph
-        * → code-graph/src/codegraph/graph/graph_store.py::edge_to_dict
-            * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
-        * → code-graph/src/codegraph/graph/graph_store.py::node_to_dict
-            * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
         * → code-graph/src/codegraph/lib/repo.py::open_store
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore
             * → code-graph/src/codegraph/lib/repo.py::resolve_root
                 * → code-graph/src/codegraph/lib/repo.py::validate_repo_root
                 * → code-graph/src/codegraph/pipeline/incremental.py::find_project_root
             * → code-graph/src/codegraph/pipeline/incremental.py::get_db_path
                 * → code-graph/src/codegraph/pipeline/incremental.py::get_data_dir
                     * → code-graph/src/codegraph/pipeline/incremental.py::_write_data_dir_gitignore
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore
+        * → code-graph/src/codegraph/graph/graph_store.py::node_to_dict
+            * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
+        * → code-graph/src/codegraph/graph/graph_store.py::edge_to_dict
+            * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
         * → code-graph/src/codegraph/lib/repo.py::resolve_graph_file_paths
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_files_matching
             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_file
                 * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
                     * → code-graph/src/codegraph/graph/graph_store.py::GraphNode
             * → code-graph/src/codegraph/lib/repo.py::add
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_files_matching
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/cli/lookup.py::search
     * entry_point=code-graph/src/codegraph/cli/lookup.py::search
-    * criticality=0.7714
+    * criticality=0.6286
     * nodes=28/30
 * code-graph/src/codegraph/cli/lookup.py::search
-    * → code-graph/src/codegraph/cli/common.py::_emit
-        * → code-graph/src/codegraph/cli/common.py::_color_enabled
-        * → code-graph/src/codegraph/cli/common.py::_json_text
     * → code-graph/src/codegraph/cli/common.py::_root
         * → code-graph/src/codegraph/pipeline/incremental.py::find_project_root
             * → code-graph/src/codegraph/pipeline/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/pipeline/incremental.py::find_svn_root
+    * → code-graph/src/codegraph/cli/common.py::_emit
+        * → code-graph/src/codegraph/cli/common.py::_json_text
+        * → code-graph/src/codegraph/cli/common.py::_color_enabled
     * → code-graph/src/codegraph/cli/common.py::_with_hints
         * → code-graph/src/codegraph/cli/hints.py::generate_hints
             * → code-graph/src/codegraph/cli/hints.py::_build_next_steps
             * → code-graph/src/codegraph/cli/hints.py::_build_related
             * → code-graph/src/codegraph/cli/hints.py::_extract_warnings
     * → code-graph/src/codegraph/query/search.py::semantic_search_nodes
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
         * → code-graph/src/codegraph/lib/repo.py::open_store
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore
             * → code-graph/src/codegraph/lib/repo.py::resolve_root
                 * → code-graph/src/codegraph/lib/repo.py::validate_repo_root
                 * → code-graph/src/codegraph/pipeline/incremental.py::find_project_root
             * → code-graph/src/codegraph/pipeline/incremental.py::get_db_path
                 * → code-graph/src/codegraph/pipeline/incremental.py::get_data_dir
                     * → code-graph/src/codegraph/pipeline/incremental.py::_write_data_dir_gitignore
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore
         * → code-graph/src/codegraph/query/search.py::search_nodes
-            * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
             * → code-graph/src/codegraph/query/search.py::_fts_search
             * → code-graph/src/codegraph/query/search.py::_keyword_search
             * → code-graph/src/codegraph/query/search.py::detect_query_kind_boost
                 * → code-graph/src/codegraph/query/search.py::extract_query_identifiers
+            * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/cli/refactor.py::refactor_apply
     * entry_point=code-graph/src/codegraph/cli/refactor.py::refactor_apply
-    * criticality=0.615
+    * criticality=0.4436
     * nodes=10/10
 * code-graph/src/codegraph/cli/refactor.py::refactor_apply
-    * → code-graph/src/codegraph/cli/common.py::_emit
-        * → code-graph/src/codegraph/cli/common.py::_color_enabled
-        * → code-graph/src/codegraph/cli/common.py::_json_text
     * → code-graph/src/codegraph/cli/common.py::_root
         * → code-graph/src/codegraph/pipeline/incremental.py::find_project_root
             * → code-graph/src/codegraph/pipeline/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/pipeline/incremental.py::find_svn_root
+    * → code-graph/src/codegraph/cli/common.py::_emit
+        * → code-graph/src/codegraph/cli/common.py::_json_text
+        * → code-graph/src/codegraph/cli/common.py::_color_enabled
     * → code-graph/src/codegraph/refactor.py::apply_refactor
         * → code-graph/src/codegraph/refactor.py::_cleanup_expired
 <!-- CTX-SYNC:FLOW-END -->
@@ -2115,96 +2133,96 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/cli/refactor.py::refactor_rename
     * entry_point=code-graph/src/codegraph/cli/refactor.py::refactor_rename
-    * criticality=0.6986
+    * criticality=0.5379
     * nodes=29/31
 * code-graph/src/codegraph/cli/refactor.py::refactor_rename
-    * → code-graph/src/codegraph/cli/common.py::_emit
-        * → code-graph/src/codegraph/cli/common.py::_color_enabled
-        * → code-graph/src/codegraph/cli/common.py::_json_text
     * → code-graph/src/codegraph/cli/common.py::_root
         * → code-graph/src/codegraph/pipeline/incremental.py::find_project_root
             * → code-graph/src/codegraph/pipeline/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/pipeline/incremental.py::find_svn_root
     * → code-graph/src/codegraph/cli/common.py::_store
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
         * → code-graph/src/codegraph/pipeline/incremental.py::get_db_path
             * → code-graph/src/codegraph/pipeline/incremental.py::get_data_dir
                 * → code-graph/src/codegraph/pipeline/incremental.py::_write_data_dir_gitignore
-    * → code-graph/src/codegraph/cli/common.py::_with_hints
-        * → code-graph/src/codegraph/cli/hints.py::generate_hints
-            * → code-graph/src/codegraph/cli/hints.py::_build_next_steps
-            * → code-graph/src/codegraph/cli/hints.py::_build_related
-            * → code-graph/src/codegraph/cli/hints.py::_extract_warnings
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
     * → code-graph/src/codegraph/refactor.py::rename_preview
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.search_nodes
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphNode
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_edges_by_target
             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
                 * → code-graph/src/codegraph/graph/graph_store.py::GraphEdge
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.search_edges_by_target_name
             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.search_nodes
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphNode
         * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
         * → code-graph/src/codegraph/refactor.py::_cleanup_expired
+    * → code-graph/src/codegraph/cli/common.py::_with_hints
+        * → code-graph/src/codegraph/cli/hints.py::generate_hints
+            * → code-graph/src/codegraph/cli/hints.py::_build_next_steps
+            * → code-graph/src/codegraph/cli/hints.py::_build_related
+            * → code-graph/src/codegraph/cli/hints.py::_extract_warnings
+    * → code-graph/src/codegraph/cli/common.py::_emit
+        * → code-graph/src/codegraph/cli/common.py::_json_text
+        * → code-graph/src/codegraph/cli/common.py::_color_enabled
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/cli/refactor.py::refactor_suggest
     * entry_point=code-graph/src/codegraph/cli/refactor.py::refactor_suggest
-    * criticality=0.7088
+    * criticality=0.5409
     * nodes=40/50
 * code-graph/src/codegraph/cli/refactor.py::refactor_suggest
-    * → code-graph/src/codegraph/cli/common.py::_emit
-        * → code-graph/src/codegraph/cli/common.py::_color_enabled
-        * → code-graph/src/codegraph/cli/common.py::_json_text
     * → code-graph/src/codegraph/cli/common.py::_root
         * → code-graph/src/codegraph/pipeline/incremental.py::find_project_root
             * → code-graph/src/codegraph/pipeline/incremental.py::find_repo_root
                 * → code-graph/src/codegraph/pipeline/incremental.py::find_svn_root
     * → code-graph/src/codegraph/cli/common.py::_store
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
         * → code-graph/src/codegraph/pipeline/incremental.py::get_db_path
             * → code-graph/src/codegraph/pipeline/incremental.py::get_data_dir
                 * → code-graph/src/codegraph/pipeline/incremental.py::_write_data_dir_gitignore
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
+    * → code-graph/src/codegraph/refactor.py::suggest_refactorings
+        * → code-graph/src/codegraph/refactor.py::find_dead_code
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_kind
+            * → code-graph/src/codegraph/refactor.py::_collect_type_referenced_names
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_kind
+            * → code-graph/src/codegraph/refactor.py::_is_test_file
+            * → code-graph/src/codegraph/refactor.py::_is_entry_point
+                * → code-graph/src/codegraph/query/flows.py::_has_framework_decorator
+                * → code-graph/src/codegraph/query/flows.py::_matches_entry_name
+            * → code-graph/src/codegraph/query/flows.py::_has_framework_decorator
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_edges_by_source
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_node
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_edges_by_target
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.search_edges_by_target_name
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphEdge
+            * → code-graph/src/codegraph/refactor.py::_is_plausible_caller
+                * → code-graph/src/codegraph/refactor.py::_path_segments
+            * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_communities_list
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_community_member_qns
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_kind
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphNode
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_edges_by_target
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
+        * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
+    * → code-graph/src/codegraph/cli/common.py::_emit
+        * → code-graph/src/codegraph/cli/common.py::_json_text
+        * → code-graph/src/codegraph/cli/common.py::_color_enabled
     * → code-graph/src/codegraph/cli/common.py::_with_hints
         * → code-graph/src/codegraph/cli/hints.py::generate_hints
             * → code-graph/src/codegraph/cli/hints.py::_build_next_steps
             * → code-graph/src/codegraph/cli/hints.py::_build_related
             * → code-graph/src/codegraph/cli/hints.py::_extract_warnings
-    * → code-graph/src/codegraph/refactor.py::suggest_refactorings
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_communities_list
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_community_member_qns
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_edges_by_target
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphEdge
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_kind
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphNode
-        * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
-        * → code-graph/src/codegraph/refactor.py::find_dead_code
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_edges_by_source
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_edges_by_target
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_node
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_kind
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.search_edges_by_target_name
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
-            * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
-            * → code-graph/src/codegraph/query/flows.py::_has_framework_decorator
-            * → code-graph/src/codegraph/refactor.py::_collect_type_referenced_names
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_kind
-            * → code-graph/src/codegraph/refactor.py::_is_entry_point
-                * → code-graph/src/codegraph/query/flows.py::_has_framework_decorator
-                * → code-graph/src/codegraph/query/flows.py::_matches_entry_name
-            * → code-graph/src/codegraph/refactor.py::_is_plausible_caller
-                * → code-graph/src/codegraph/refactor.py::_path_segments
-            * → code-graph/src/codegraph/refactor.py::_is_test_file
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
@@ -2220,85 +2238,85 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/graph/graph_store.py::GraphStore.__init__
     * entry_point=code-graph/src/codegraph/graph/graph_store.py::GraphStore.__init__
-    * criticality=0.445
+    * criticality=0.2629
     * nodes=6/7
 * code-graph/src/codegraph/graph/graph_store.py::GraphStore.__init__
     * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._init_schema
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.commit
             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.commit
     * → code-graph/src/codegraph/graph/migrations.py::run_migrations
-        * → code-graph/src/codegraph/graph/migrations.py::_set_schema_version
         * → code-graph/src/codegraph/graph/migrations.py::get_schema_version
+        * → code-graph/src/codegraph/graph/migrations.py::_set_schema_version
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_stats
     * entry_point=code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_stats
-    * criticality=0.36
+    * criticality=0.16
     * nodes=3/3
 * code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_stats
-    * → code-graph/src/codegraph/graph/graph_store.py::GraphStats
     * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_metadata
+    * → code-graph/src/codegraph/graph/graph_store.py::GraphStats
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_subgraph
     * entry_point=code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_subgraph
-    * criticality=0.38
+    * criticality=0.205
     * nodes=7/7
 * code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_subgraph
-    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_edges_by_source
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphEdge
     * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_node
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
             * → code-graph/src/codegraph/graph/graph_store.py::GraphNode
+    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_edges_by_source
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphEdge
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/graph/graph_store.py::GraphStore.store_file_batch
     * entry_point=code-graph/src/codegraph/graph/graph_store.py::GraphStore.store_file_batch
-    * criticality=0.3978
+    * criticality=0.2478
     * nodes=9/13
 * code-graph/src/codegraph/graph/graph_store.py::GraphStore.store_file_batch
     * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._begin_immediate
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.rollback
-    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._invalidate_cache
-    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.commit
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.commit
     * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.remove_file_data
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._invalidate_cache
-    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.rollback
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.rollback
-    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.upsert_edge
     * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.upsert_node
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._make_qualified
+    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.upsert_edge
+    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.commit
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.commit
+    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.rollback
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.rollback
+    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._invalidate_cache
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/graph/graph_store.py::GraphStore.store_file_nodes_edges
     * entry_point=code-graph/src/codegraph/graph/graph_store.py::GraphStore.store_file_nodes_edges
-    * criticality=0.3978
+    * criticality=0.2478
     * nodes=9/13
 * code-graph/src/codegraph/graph/graph_store.py::GraphStore.store_file_nodes_edges
     * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._begin_immediate
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.rollback
-    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._invalidate_cache
-    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.commit
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.commit
     * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.remove_file_data
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._invalidate_cache
-    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.rollback
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.rollback
-    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.upsert_edge
     * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.upsert_node
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._make_qualified
+    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.upsert_edge
+    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.commit
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.commit
+    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.rollback
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.rollback
+    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._invalidate_cache
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/graph/migrations.py::_migrate_v1
     * entry_point=code-graph/src/codegraph/graph/migrations.py::_migrate_v1
-    * criticality=0.36
+    * criticality=0.16
     * nodes=3/3
 * code-graph/src/codegraph/graph/migrations.py::_migrate_v1
     * → code-graph/src/codegraph/graph/migrations.py::_has_column
@@ -2308,29 +2326,29 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/parsing/parser.py::CodeParser.__init__
     * entry_point=code-graph/src/codegraph/parsing/parser.py::CodeParser.__init__
-    * criticality=0.5713
+    * criticality=0.357
     * nodes=8/8
 * code-graph/src/codegraph/parsing/parser.py::CodeParser.__init__
+    * → code-graph/src/codegraph/parsing/tsconfig.py::TsconfigResolver
     * → code-graph/src/codegraph/parsing/custom.py::load_custom_languages
-        * → code-graph/src/codegraph/parsing/custom.py::_CacheEntry
         * → code-graph/src/codegraph/parsing/custom.py::_load_uncached
             * → code-graph/src/codegraph/parsing/custom.py::_validate_entry
                 * → code-graph/src/codegraph/parsing/custom.py::CustomLanguage
+        * → code-graph/src/codegraph/parsing/custom.py::_CacheEntry
     * → code-graph/src/codegraph/parsing/parser.py::_builtin_language_names
-    * → code-graph/src/codegraph/parsing/tsconfig.py::TsconfigResolver
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/parsing/tsconfig.py::TsconfigResolver.resolve_alias
     * entry_point=code-graph/src/codegraph/parsing/tsconfig.py::TsconfigResolver.resolve_alias
-    * criticality=0.39
+    * criticality=0.24
     * nodes=8/9
 * code-graph/src/codegraph/parsing/tsconfig.py::TsconfigResolver.resolve_alias
     * → code-graph/src/codegraph/parsing/tsconfig.py::TsconfigResolver._load_tsconfig_for_file
         * → code-graph/src/codegraph/parsing/tsconfig.py::TsconfigResolver._parse_tsconfig
             * → code-graph/src/codegraph/parsing/tsconfig.py::TsconfigResolver._resolve_extends
-                * → code-graph/src/codegraph/parsing/tsconfig.py::TsconfigResolver._resolve_extends
                 * → code-graph/src/codegraph/parsing/tsconfig.py::TsconfigResolver._strip_jsonc_comments
+                * → code-graph/src/codegraph/parsing/tsconfig.py::TsconfigResolver._resolve_extends
     * → code-graph/src/codegraph/parsing/tsconfig.py::TsconfigResolver._match_and_probe
         * → code-graph/src/codegraph/parsing/tsconfig.py::_match_pattern
         * → code-graph/src/codegraph/parsing/tsconfig.py::_probe_path
@@ -2339,405 +2357,406 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/pipeline/incremental.py::_parse_single_file
     * entry_point=code-graph/src/codegraph/pipeline/incremental.py::_parse_single_file
-    * criticality=0.4931
-    * nodes=124/309
+    * criticality=0.3609
+    * nodes=124/310
 * code-graph/src/codegraph/pipeline/incremental.py::_parse_single_file
     * → code-graph/src/codegraph/parsing/parser.py::CodeParser
     * → code-graph/src/codegraph/parsing/parser.py::CodeParser.parse_bytes
+        * → code-graph/src/codegraph/parsing/parser.py::CodeParser.detect_language
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._detect_language_from_shebang
+        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_vue
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_parser
+            * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
+            * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_file_scope
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_svelte
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_parser
+            * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
+            * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_file_scope
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_notebook
+            * → code-graph/src/codegraph/parsing/parser.py::CellInfo
+            * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+            * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_notebook_cells
+                * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
+                * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_parser
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_file_scope
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_targets
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_databricks_py_notebook
+            * → code-graph/src/codegraph/parsing/parser.py::CellInfo
+            * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+            * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_notebook_cells
+        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_rescript
+            * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
+            * → code-graph/src/codegraph/parsing/parser.py::_strip_rescript_noise
+            * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+            * → code-graph/src/codegraph/parsing/parser.py::_scan_rescript_modules
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser.offset_to_line
+            * → code-graph/src/codegraph/parsing/parser.py::_rescript_brace_depth_array
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser.enclosing_module
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser.is_top_level
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser.offset_to_line
+            * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
+                * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
+            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_targets
+        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_sql
+            * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
+            * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_parser
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._walk_sql_tree
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_sql_ddl
+                    * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                    * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._walk_sql_tree
+            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_parser
+        * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
+        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
         * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_file_scope
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_import_names
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_js_import_names
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_js_exported_local_names
             * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_name
                 * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_name
                 * → code-graph/src/codegraph/parsing/parser.py::CodeParser._leaf_name
                     * → code-graph/src/codegraph/parsing/parser.py::CodeParser._leaf_name
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_js_exported_local_names
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_import_names
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_js_import_names
         * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_type_bindings
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._simple_type_name
             * → code-graph/src/codegraph/parsing/parser.py::CodeParser.bind
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._simple_type_name
         * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_bash_source_command
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_pascal_constructs
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_pascal_unit
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._pascal_dir_listing
+                * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._pascal_type_name
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._pascal_proc_name
+                * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._pascal_params
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._pascal_return_type
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._pascal_call_parts
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_target
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_imported_symbol
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_exported_symbol
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser.detect_language
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_parser
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_file_scope
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_imported_symbol
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_exported_symbol
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_r_constructs
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._handle_r_binary_operator
+                    * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
+                    * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                    * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_call_func_name
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._handle_r_class_call
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_first_string_arg
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_find_named_arg
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_iter_args
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_r_methods
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_iter_args
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
+                            * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._handle_r_call
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_call_func_name
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_import
+                    * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._handle_r_class_call
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_call_name
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_target
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_lua_constructs
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._handle_lua_variable_declaration
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._lua_get_require_target
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
+                    * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                    * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
+                    * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._handle_lua_table_function
+                    * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
+                    * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                    * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._lua_get_require_target
                 * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
                     * → code-graph/src/codegraph/parsing/parser.py::CodeParser._do_resolve_module
                         * → code-graph/src/codegraph/parsing/parser.py::CodeParser._find_dart_pubspec_root
                 * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_calls
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_base_call_name
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_call_name
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_custom_call_name
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._normalize_php_name
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_call_receiver
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_java_method_and_receiver
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_test_description
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_target
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_imported_symbol
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_exported_symbol
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_file_scope
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_parser
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_exported_symbol
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_imported_symbol
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser.detect_language
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
-                * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_classes
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_kafka_edges_from_class
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                    * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_spring_injections
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_spring_constructor_injection
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_java_annotations
-                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_spring_field_injection
-                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_temporal_stub_fields
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                    * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_bases
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_class_decorators
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_java_annotations
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_name
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_dart_calls_from_children
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_bash_source_command
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
                 * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
             * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_elixir_constructs
                 * → code-graph/src/codegraph/parsing/parser.py::CodeParser._elixir_call_identifier
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._elixir_function_name_and_params
                 * → code-graph/src/codegraph/parsing/parser.py::CodeParser._elixir_module_name
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
                 * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._elixir_function_name_and_params
+                * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
                 * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_target
-                * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_functions
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_kafka_edges_from_method
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_kafka_annotation_topics
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                    * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_go_receiver_type
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_name
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_return_type
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_imports
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_import
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._find_string_literal
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._find_string_literal
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._import_path_text
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_call_func_name
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_first_string_arg
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_iter_args
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
-                * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_js_field_function
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_js_var_functions
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_return_type
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_jsx_component_call
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_jsx_component_target
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_jsx_component_reference
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_member_expression_root_name
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_member_expression_root_name
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._looks_like_component_name
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_target
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_imported_symbol
-                * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_julia_constructs
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._julia_call_first_identifier
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._julia_short_func_name
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._julia_string_arg
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
-                * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_lua_constructs
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._handle_lua_table_function
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                    * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._handle_lua_variable_declaration
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._lua_get_require_target
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
-                    * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._lua_get_require_target
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
-                * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
             * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_nix_constructs
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._nix_attrpath_parts
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._is_nix_flake_file
+                * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
                 * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_nix_flake_input_urls
                     * → code-graph/src/codegraph/parsing/parser.py::CodeParser.visit
                         * → code-graph/src/codegraph/parsing/parser.py::CodeParser._nix_attrpath_parts
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser.first_path_arg
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser.head_call_name
                         * → code-graph/src/codegraph/parsing/parser.py::CodeParser.visit
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser.head_call_name
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser.first_path_arg
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
                 * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_nix_import_targets
                     * → code-graph/src/codegraph/parsing/parser.py::CodeParser.visit
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._is_nix_flake_file
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._nix_attrpath_parts
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_julia_constructs
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._julia_short_func_name
+                * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
                 * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._julia_call_first_identifier
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._julia_string_arg
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_dart_calls_from_children
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_js_var_functions
+                * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_return_type
+                * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_classes
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_name
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_class_decorators
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_java_annotations
+                * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_bases
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_spring_injections
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_spring_field_injection
+                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_spring_constructor_injection
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_java_annotations
+                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_temporal_stub_fields
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                    * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_kafka_edges_from_class
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                    * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_js_field_function
+                * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
+                * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_functions
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_name
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_go_receiver_type
+                * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_return_type
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_kafka_edges_from_method
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_kafka_annotation_topics
+                    * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
+                * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_imports
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_import
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_call_func_name
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_iter_args
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_first_string_arg
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._find_string_literal
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._find_string_literal
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._import_path_text
                 * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
                 * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_pascal_constructs
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._pascal_call_parts
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._pascal_params
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._pascal_proc_name
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._pascal_return_type
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._pascal_type_name
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_calls
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_call_name
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._normalize_php_name
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_custom_call_name
+                * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_base_call_name
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_test_description
                 * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_target
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_pascal_unit
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._pascal_dir_listing
-                * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
                 * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_r_constructs
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._handle_r_binary_operator
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._handle_r_class_call
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_r_methods
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_params
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_iter_args
-                            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                            * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_find_named_arg
-                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_iter_args
-                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_first_string_arg
-                        * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_call_func_name
-                    * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._handle_r_call
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_import
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_call_name
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._handle_r_class_call
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._r_call_func_name
+                * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_java_method_and_receiver
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_call_receiver
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_module_to_file
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_target
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_jsx_component_call
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_jsx_component_target
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_jsx_component_reference
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._looks_like_component_name
+                        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_member_expression_root_name
+                            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_member_expression_root_name
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_target
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_imported_symbol
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_value_references
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._ref_from_pair
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_reference_if_known
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_reference_if_known
                     * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_target
                     * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._ref_from_assignment
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_reference_if_known
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._ref_from_array
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_reference_if_known
+                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._ref_from_arguments
+                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_reference_if_known
             * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_solidity_constructs
                 * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
                 * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
                 * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_value_references
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_reference_if_known
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_target
-                    * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._ref_from_arguments
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_reference_if_known
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._ref_from_array
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_reference_if_known
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._ref_from_assignment
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_reference_if_known
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._ref_from_pair
-                    * → code-graph/src/codegraph/parsing/parser.py::CodeParser._emit_reference_if_known
-        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_parser
-        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_databricks_py_notebook
-            * → code-graph/src/codegraph/parsing/parser.py::CellInfo
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_notebook_cells
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_file_scope
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_parser
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_targets
-                * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
-            * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-            * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
-        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_notebook
-            * → code-graph/src/codegraph/parsing/parser.py::CellInfo
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_notebook_cells
-            * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-            * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
-        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_rescript
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_targets
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser.enclosing_module
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser.is_top_level
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser.offset_to_line
-            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-            * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-            * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
-            * → code-graph/src/codegraph/parsing/parser.py::_is_test_function
-                * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
-            * → code-graph/src/codegraph/parsing/parser.py::_rescript_brace_depth_array
-            * → code-graph/src/codegraph/parsing/parser.py::_scan_rescript_modules
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser.offset_to_line
-            * → code-graph/src/codegraph/parsing/parser.py::_strip_rescript_noise
-        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_sql
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_parser
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._walk_sql_tree
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_sql_ddl
-                    * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-                    * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-                * → code-graph/src/codegraph/parsing/parser.py::CodeParser._walk_sql_tree
-            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-            * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-            * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
-        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_svelte
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_file_scope
             * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_parser
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-            * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-            * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
-        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._parse_vue
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._collect_file_scope
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._extract_from_tree
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._get_parser
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
-            * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-            * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-            * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
-        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
         * → code-graph/src/codegraph/parsing/parser.py::CodeParser._resolve_call_targets
             * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
             * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-        * → code-graph/src/codegraph/parsing/parser.py::CodeParser.detect_language
-            * → code-graph/src/codegraph/parsing/parser.py::CodeParser._detect_language_from_shebang
+        * → code-graph/src/codegraph/parsing/parser.py::CodeParser._qualify
         * → code-graph/src/codegraph/parsing/parser.py::EdgeInfo
-        * → code-graph/src/codegraph/parsing/parser.py::NodeInfo
-        * → code-graph/src/codegraph/parsing/parser.py::_is_test_file
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
 * flow=ctx-sync/src/ctxsync/cli.py::sync
     * entry_point=ctx-sync/src/ctxsync/cli.py::sync
-    * criticality=0.7
+    * criticality=0.5714
     * nodes=45/75
 * ctx-sync/src/ctxsync/cli.py::sync
-    * → ctx-sync/src/ctxsync/cli.py::_atomic_write
+    * → ctx-sync/src/ctxsync/graph.py::canonical_context_type
+        * → ctx-sync/src/ctxsync/graph.py::ContextTypeError
     * → ctx-sync/src/ctxsync/cli.py::_read_payload
+        * → ctx-sync/src/ctxsync/graph.py::load_graph
+            * → ctx-sync/src/ctxsync/graph.py::GraphInputError
         * → ctx-sync/src/ctxsync/cli.py::_run_code_graph
             * → ctx-sync/src/ctxsync/graph.py::GraphInputError
         * → ctx-sync/src/ctxsync/graph.py::GraphInputError
-        * → ctx-sync/src/ctxsync/graph.py::load_graph
-            * → ctx-sync/src/ctxsync/graph.py::GraphInputError
-    * → ctx-sync/src/ctxsync/cli.py::_write_flow_document
-        * → ctx-sync/src/ctxsync/cli.py::_atomic_write
-    * → ctx-sync/src/ctxsync/graph.py::canonical_context_type
-        * → ctx-sync/src/ctxsync/graph.py::ContextTypeError
+    * → ctx-sync/src/ctxsync/graph.py::flows_for_context
+        * → ctx-sync/src/ctxsync/graph.py::GraphInputError
+        * → ctx-sync/src/ctxsync/graph.py::_rel_ref
+            * → ctx-sync/src/ctxsync/graph.py::_posix
+            * → ctx-sync/src/ctxsync/graph.py::_relative
+        * → ctx-sync/src/ctxsync/graph.py::_single_line
+        * → ctx-sync/src/ctxsync/graph.py::_as_int
+        * → ctx-sync/src/ctxsync/graph.py::_rel_tree
+            * → ctx-sync/src/ctxsync/graph.py::_rel_ref
+            * → ctx-sync/src/ctxsync/graph.py::_rel_tree
+        * → ctx-sync/src/ctxsync/graph.py::_dedupe_flows
     * → ctx-sync/src/ctxsync/graph.py::entities_for_context
-        * → ctx-sync/src/ctxsync/graph.py::ContextTypeError
+        * → ctx-sync/src/ctxsync/graph.py::canonical_context_type
         * → ctx-sync/src/ctxsync/graph.py::_from_communities
             * → ctx-sync/src/ctxsync/graph.py::GraphInputError
+            * → ctx-sync/src/ctxsync/graph.py::_single_line
             * → ctx-sync/src/ctxsync/graph.py::_as_int
-            * → ctx-sync/src/ctxsync/graph.py::_dedupe
             * → ctx-sync/src/ctxsync/graph.py::_membership_digest
                 * → ctx-sync/src/ctxsync/graph.py::_path_digest
             * → ctx-sync/src/ctxsync/graph.py::_posix
             * → ctx-sync/src/ctxsync/graph.py::_relative
-            * → ctx-sync/src/ctxsync/graph.py::_single_line
             * → ctx-sync/src/ctxsync/model.py::Entity
-        * → ctx-sync/src/ctxsync/graph.py::canonical_context_type
+            * → ctx-sync/src/ctxsync/graph.py::_dedupe
+        * → ctx-sync/src/ctxsync/graph.py::ContextTypeError
         * → ctx-sync/src/ctxsync/graph.py::entities_from_graph
             * → ctx-sync/src/ctxsync/graph.py::GraphInputError
             * → ctx-sync/src/ctxsync/graph.py::_from_entities
-                * → ctx-sync/src/ctxsync/graph.py::_as_int
-                * → ctx-sync/src/ctxsync/graph.py::_as_opt_str
-                * → ctx-sync/src/ctxsync/graph.py::_bare_name
-                * → ctx-sync/src/ctxsync/graph.py::_dedupe
+                * → ctx-sync/src/ctxsync/model.py::Entity
                 * → ctx-sync/src/ctxsync/graph.py::_posix
                 * → ctx-sync/src/ctxsync/graph.py::_relative
-                * → ctx-sync/src/ctxsync/model.py::Entity
-            * → ctx-sync/src/ctxsync/graph.py::_from_nodes
+                * → ctx-sync/src/ctxsync/graph.py::_bare_name
                 * → ctx-sync/src/ctxsync/graph.py::_as_int
                 * → ctx-sync/src/ctxsync/graph.py::_as_opt_str
                 * → ctx-sync/src/ctxsync/graph.py::_dedupe
+            * → ctx-sync/src/ctxsync/graph.py::_from_nodes
                 * → ctx-sync/src/ctxsync/graph.py::_node_qn
                     * → ctx-sync/src/ctxsync/graph.py::_lookup_node
                 * → ctx-sync/src/ctxsync/graph.py::_posix
+                * → ctx-sync/src/ctxsync/graph.py::_relative
+                * → ctx-sync/src/ctxsync/model.py::Entity
+                * → ctx-sync/src/ctxsync/graph.py::_as_int
+                * → ctx-sync/src/ctxsync/graph.py::_as_opt_str
                 * → ctx-sync/src/ctxsync/graph.py::_ref
                     * → ctx-sync/src/ctxsync/graph.py::_lookup_node
                     * → ctx-sync/src/ctxsync/graph.py::_posix
                     * → ctx-sync/src/ctxsync/graph.py::_relative
-                * → ctx-sync/src/ctxsync/graph.py::_relative
-                * → ctx-sync/src/ctxsync/model.py::Entity
-    * → ctx-sync/src/ctxsync/graph.py::flows_for_context
-        * → ctx-sync/src/ctxsync/graph.py::GraphInputError
-        * → ctx-sync/src/ctxsync/graph.py::_as_int
-        * → ctx-sync/src/ctxsync/graph.py::_dedupe_flows
-        * → ctx-sync/src/ctxsync/graph.py::_rel_ref
-            * → ctx-sync/src/ctxsync/graph.py::_posix
-            * → ctx-sync/src/ctxsync/graph.py::_relative
-        * → ctx-sync/src/ctxsync/graph.py::_rel_tree
-            * → ctx-sync/src/ctxsync/graph.py::_rel_ref
-            * → ctx-sync/src/ctxsync/graph.py::_rel_tree
-        * → ctx-sync/src/ctxsync/graph.py::_single_line
+                * → ctx-sync/src/ctxsync/graph.py::_dedupe
+    * → ctx-sync/src/ctxsync/cli.py::_write_flow_document
+        * → ctx-sync/src/ctxsync/cli.py::_atomic_write
+    * → ctx-sync/src/ctxsync/sync.py::sync_document
+        * → ctx-sync/src/ctxsync/model.py::SyncResult
+        * → ctx-sync/src/ctxsync/markdown.py::render_new_document
+            * → ctx-sync/src/ctxsync/markdown.py::render_block
+        * → ctx-sync/src/ctxsync/markdown.py::render_block
+            * → ctx-sync/src/ctxsync/markdown.py::block_markers
+            * → ctx-sync/src/ctxsync/markdown.py::_fact_lines
+                * → ctx-sync/src/ctxsync/markdown.py::_line_range
+                * → ctx-sync/src/ctxsync/markdown.py::_one_line
+        * → ctx-sync/src/ctxsync/markdown.py::append_blocks
     * → ctx-sync/src/ctxsync/markdown.py::parse_document
+        * → ctx-sync/src/ctxsync/model.py::ContextDocument
         * → ctx-sync/src/ctxsync/markdown.py::_marker_regions
             * → ctx-sync/src/ctxsync/markdown.py::block_pattern
                 * → ctx-sync/src/ctxsync/markdown.py::block_markers
             * → ctx-sync/src/ctxsync/model.py::ContextEntity
-        * → ctx-sync/src/ctxsync/model.py::ContextDocument
-    * → ctx-sync/src/ctxsync/sync.py::sync_document
-        * → ctx-sync/src/ctxsync/markdown.py::append_blocks
-        * → ctx-sync/src/ctxsync/markdown.py::render_block
-            * → ctx-sync/src/ctxsync/markdown.py::_fact_lines
-                * → ctx-sync/src/ctxsync/markdown.py::_line_range
-                * → ctx-sync/src/ctxsync/markdown.py::_one_line
-            * → ctx-sync/src/ctxsync/markdown.py::block_markers
-        * → ctx-sync/src/ctxsync/markdown.py::render_new_document
-            * → ctx-sync/src/ctxsync/markdown.py::render_block
-        * → ctx-sync/src/ctxsync/model.py::SyncResult
+    * → ctx-sync/src/ctxsync/cli.py::_atomic_write
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
 * flow=ctx-sync/src/ctxsync/flows_doc.py::parse_blocks
     * entry_point=ctx-sync/src/ctxsync/flows_doc.py::parse_blocks
-    * criticality=0.36
+    * criticality=0.16
     * nodes=2/2
 * ctx-sync/src/ctxsync/flows_doc.py::parse_blocks
     * → ctx-sync/src/ctxsync/flows_doc.py::_parse_meta
@@ -2746,7 +2765,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-START -->
 * flow=ctx-sync/src/ctxsync/flows_doc.py::render_document
     * entry_point=ctx-sync/src/ctxsync/flows_doc.py::render_document
-    * criticality=0.445
+    * criticality=0.2129
     * nodes=6/7
 * ctx-sync/src/ctxsync/flows_doc.py::render_document
     * → ctx-sync/src/ctxsync/flows_doc.py::FlowSyncResult
@@ -2760,23 +2779,23 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-START -->
 * flow=ctx-sync/src/ctxsync/sync.py::render_empty
     * entry_point=ctx-sync/src/ctxsync/sync.py::render_empty
-    * criticality=0.54
+    * criticality=0.3007
     * nodes=15/17
 * ctx-sync/src/ctxsync/sync.py::render_empty
+    * → ctx-sync/src/ctxsync/sync.py::sync_document
+        * → ctx-sync/src/ctxsync/model.py::SyncResult
+        * → ctx-sync/src/ctxsync/markdown.py::render_new_document
+            * → ctx-sync/src/ctxsync/markdown.py::render_block
+        * → ctx-sync/src/ctxsync/markdown.py::render_block
+            * → ctx-sync/src/ctxsync/markdown.py::block_markers
+            * → ctx-sync/src/ctxsync/markdown.py::_fact_lines
+                * → ctx-sync/src/ctxsync/markdown.py::_line_range
+                * → ctx-sync/src/ctxsync/markdown.py::_one_line
+        * → ctx-sync/src/ctxsync/markdown.py::append_blocks
     * → ctx-sync/src/ctxsync/markdown.py::parse_document
+        * → ctx-sync/src/ctxsync/model.py::ContextDocument
         * → ctx-sync/src/ctxsync/markdown.py::_marker_regions
             * → ctx-sync/src/ctxsync/markdown.py::block_pattern
                 * → ctx-sync/src/ctxsync/markdown.py::block_markers
             * → ctx-sync/src/ctxsync/model.py::ContextEntity
-        * → ctx-sync/src/ctxsync/model.py::ContextDocument
-    * → ctx-sync/src/ctxsync/sync.py::sync_document
-        * → ctx-sync/src/ctxsync/markdown.py::append_blocks
-        * → ctx-sync/src/ctxsync/markdown.py::render_block
-            * → ctx-sync/src/ctxsync/markdown.py::_fact_lines
-                * → ctx-sync/src/ctxsync/markdown.py::_line_range
-                * → ctx-sync/src/ctxsync/markdown.py::_one_line
-            * → ctx-sync/src/ctxsync/markdown.py::block_markers
-        * → ctx-sync/src/ctxsync/markdown.py::render_new_document
-            * → ctx-sync/src/ctxsync/markdown.py::render_block
-        * → ctx-sync/src/ctxsync/model.py::SyncResult
 <!-- CTX-SYNC:FLOW-END -->

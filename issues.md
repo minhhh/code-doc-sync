@@ -4,8 +4,8 @@
 
 **Severity:** high (silently corrupts flow ranking)
 **Component:** `code-graph`
-**Status:** open
-**Affects:** `compute_criticality` (`src/codegraph/flows.py:310`), every `flows` consumer (`flow`, `flows`, `export --type flows`, `ctx-sync --type flows`)
+**Status:** fixed
+**Affects:** `compute_criticality` (`src/codegraph/query/flows.py`), every `flows` consumer (`flow`, `flows`, `export --type flows`, `ctx-sync --type flows`)
 
 ### Symptom
 
@@ -166,6 +166,53 @@ already renders it as a bare fact.
 
 Recommended order: **A** (stop the bleeding, no data change), then **B**
 (improve the underlying edges), and re-measure before touching weights.
+
+### Resolution
+
+Proposed fix A as written — "count a call as external only when it resolves to
+a node outside the flow's own files" — is structurally always `0`. Tracing
+follows every resolved `CALLS` target into the path, so a resolved callee is by
+definition inside the flow. Measured on this repo before changing anything:
+`external = 0` for all 38 flows, i.e. the factor would have become an inert
+`0.20` of weight rather than a corrected one.
+
+What shipped instead keeps the factor and makes it decidable: **external means
+the callee is a member of a module imported from outside the project.**
+
+- The parser collects plain `import x` / `import x as y` into the import map
+  (it previously only collected `from x import y`), so module receivers are
+  known at all.
+- A member call whose receiver is in the import map, whose module has no file in
+  the repository (`_resolve_module_to_file` returns `None`), and whose receiver
+  type is not declared gets `extra.external_module = <module>`.
+- `load_flow_adjacency` collects those into `FlowAdjacency.external_calls`;
+  `compute_criticality` counts **distinct modules**, normalized `min(n / 8, 1)`.
+
+That separates `logging.getLogger()` (a dependency) from `seen.add()`
+(a local value) and from `append`/`get`/`len` (unresolved bare names, now
+counted as nothing).
+
+Re-measured on this repository (38 flows):
+
+| Factor | Saturating before | After |
+| --- | --- | --- |
+| `external_calls` | 37/38 (97%) | 3/38 (8%) |
+| `file_spread` | 0/38 (all zero) | 2/38 (5%) |
+| `test_gap` | 38/38 | 38/38 (no `TESTED_BY` edges exist) |
+| `security` | 0/38 | 0/38 |
+| `depth` | 0/38 | 0/38 |
+
+`file_spread`'s cap was raised from 5 to 8 files (`(file_count - 1) / 7`),
+because 24 of 38 flows span 5+ files and the factor saturated at 63%; the
+distribution is bimodal (16 flows at 6 files, 2 at 14).
+
+The `generate_hints` example is stale: it now has an incoming call from
+`cli/common.py::_with_hints`, so it is no longer traced as an entry point.
+
+Proposed fix B (project-wide bare-name resolution) was not needed for this: the
+new definition doesn't depend on bare names resolving, and precision-over-recall
+still argues against a name-based fallback pass. Proposal C (`BUILTIN_CALL_NAMES`)
+became unnecessary for the same reason.
 
 ### Acceptance criteria
 

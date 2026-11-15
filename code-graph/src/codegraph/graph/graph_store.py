@@ -122,6 +122,8 @@ class FlowAdjacency:
     has_tested_by: set[str]
     nodes_by_qn: dict[str, "GraphNode"]
     nodes_by_id: dict[int, "GraphNode"]
+    # caller qualified name -> modules it calls that live outside the project
+    external_calls: dict[str, list[str]]
 
 
 @dataclass
@@ -1247,14 +1249,23 @@ class GraphStore:
             nodes_by_id[node.id] = node
 
         calls_out: dict[str, list[str]] = {}
+        external_calls: dict[str, list[str]] = {}
         has_tested_by: set[str] = set()
         for row in self._conn.execute(
-            "SELECT kind, source_qualified, target_qualified FROM edges "
+            "SELECT kind, source_qualified, target_qualified, extra FROM edges "
             "WHERE kind IN ('CALLS', 'TESTED_BY')"
         ):
             kind, src, tgt = row["kind"], row["source_qualified"], row["target_qualified"]
             if kind == "CALLS":
                 calls_out.setdefault(src, []).append(tgt)
+                extra = row["extra"]
+                if extra and '"external_module":' in extra:
+                    try:
+                        module = json.loads(extra).get("external_module")
+                    except (json.JSONDecodeError, TypeError, AttributeError):
+                        module = None
+                    if module:
+                        external_calls.setdefault(src, []).append(module)
             else:  # TESTED_BY
                 has_tested_by.add(tgt)
 
@@ -1263,6 +1274,7 @@ class GraphStore:
             has_tested_by=has_tested_by,
             nodes_by_qn=nodes_by_qn,
             nodes_by_id=nodes_by_id,
+            external_calls=external_calls,
         )
 
     # --- Internal helpers ---

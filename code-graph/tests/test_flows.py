@@ -61,6 +61,19 @@ class TestFlows:
         self.store.upsert_edge(edge)
         self.store.commit()
 
+    def _add_call_with_extra(
+        self, source_qn: str, target_qn: str, extra: dict, path: str = "app.py",
+    ) -> None:
+        self.store.upsert_edge(EdgeInfo(
+            kind="CALLS",
+            source=source_qn,
+            target=target_qn,
+            file_path=path,
+            line=6,
+            extra=extra,
+        ))
+        self.store.commit()
+
     # ---------------------------------------------------------------
     # detect_entry_points
     # ---------------------------------------------------------------
@@ -355,6 +368,41 @@ class TestFlows:
         assert len(single) == 1
         assert len(multi) == 1
         assert multi[0]["criticality"] >= single[0]["criticality"]
+
+    def test_unresolved_calls_are_not_external_dependencies(self):
+        """Bare names like ``append`` and ``get`` are not dependencies."""
+        self._add_func("ep", path="app.py")
+        self._add_func("callee", path="app.py")
+        self._add_call("app.py::ep", "app.py::callee")
+
+        baseline = next(
+            f for f in trace_flows(self.store) if f["entry_point"] == "app.py::ep"
+        )["criticality"]
+
+        for bare in ("append", "get", "len", "decode", "execute", "fetchall"):
+            self._add_call("app.py::ep", bare)
+
+        after = next(
+            f for f in trace_flows(self.store) if f["entry_point"] == "app.py::ep"
+        )["criticality"]
+        assert after == baseline
+
+    def test_external_module_calls_raise_criticality(self):
+        """Calls on imported modules outside the project count as dependencies."""
+        self._add_func("plain", path="a.py")
+        self._add_func("plain_helper", path="a.py")
+        self._add_call("a.py::plain", "a.py::plain_helper")
+
+        self._add_func("wired", path="b.py")
+        self._add_func("wired_helper", path="b.py")
+        self._add_call("b.py::wired", "b.py::wired_helper")
+        for module in ("logging", "sqlite3", "subprocess", "requests"):
+            self._add_call_with_extra(
+                "b.py::wired", "get", {"external_module": module}, path="b.py",
+            )
+
+        flows = {f["entry_point"]: f["criticality"] for f in trace_flows(self.store)}
+        assert flows["b.py::wired"] > flows["a.py::plain"]
 
     # ---------------------------------------------------------------
     # store_flows + get_flows roundtrip

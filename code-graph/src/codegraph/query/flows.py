@@ -321,8 +321,7 @@ def compute_criticality(flow: dict, adj: FlowAdjacency) -> float:
         return 0.0
 
     nodes_by_id = adj.nodes_by_id
-    nodes_by_qn = adj.nodes_by_qn
-    calls_out = adj.calls_out
+    external_calls = adj.external_calls
     has_tested_by = adj.has_tested_by
 
     nodes: list[GraphNode] = [
@@ -333,18 +332,23 @@ def compute_criticality(flow: dict, adj: FlowAdjacency) -> float:
 
     # --- File spread (0.0 - 1.0) ---
     file_count = len({n.file_path for n in nodes})
-    # Normalize: 1 file => 0.0, 5+ files => 1.0
-    file_spread = min((file_count - 1) / 4.0, 1.0) if file_count > 1 else 0.0
+    # Normalize: 1 file => 0.0, 8+ files => 1.0. The old cap of 5 saturated on
+    # 63% of this repo's flows, turning the factor into a constant.
+    file_spread = min((file_count - 1) / 7.0, 1.0) if file_count > 1 else 0.0
 
-    # --- External calls (0.0 - 1.0) ---
-    # Calls that target nodes NOT in the graph are considered external.
-    external_count = 0
-    for n in nodes:
-        for target_qn in calls_out.get(n.qualified_name, ()):
-            if target_qn not in nodes_by_qn:
-                external_count += 1
-    # Normalize: 0 => 0.0, 5+ => 1.0
-    external_score = min(external_count / 5.0, 1.0)
+    # --- External dependencies (0.0 - 1.0) ---
+    # Count modules imported from outside the project that flow nodes call
+    # (``logging.getLogger``, ``sqlite3.connect``). A call that resolves to a
+    # node is by construction inside the flow, so it is never external; a bare
+    # unresolved name (``append``, ``get``) is not a dependency at all. Counting
+    # either was measuring call volume and stdlib method names, not risk.
+    external_modules = {
+        module
+        for n in nodes
+        for module in external_calls.get(n.qualified_name, ())
+    }
+    # Normalize: 0 modules => 0.0, 8+ => 1.0
+    external_score = min(len(external_modules) / 8.0, 1.0)
 
     # --- Security sensitivity (0.0 - 1.0) ---
     security_hits = 0
