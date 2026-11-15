@@ -14,7 +14,6 @@ from codegraph.pipeline.incremental import (
     _should_ignore,
     _single_hop_dependents,
     _store_batch_size,
-    ensure_repo_gitignore_excludes_crg,
     find_dependents,
     find_project_root,
     find_repo_root,
@@ -146,46 +145,6 @@ class TestGetDbPath:
         get_db_path(tmp_path)
         for suffix in ("-wal", "-shm", "-journal"):
             assert not (tmp_path / f".code-graph.db{suffix}").exists()
-
-
-class TestEnsureRepoGitignoreExcludesCrg:
-    def test_creates_gitignore_when_missing(self, tmp_path):
-        state = ensure_repo_gitignore_excludes_crg(tmp_path)
-        assert state == "created"
-
-        gitignore = tmp_path / ".gitignore"
-        assert gitignore.exists()
-        assert gitignore.read_text() == (
-            "# Added by code-graph\n"
-            ".code-graph/\n"
-        )
-
-    def test_appends_rule_when_missing(self, tmp_path):
-        gitignore = tmp_path / ".gitignore"
-        gitignore.write_text("node_modules/\n")
-
-        state = ensure_repo_gitignore_excludes_crg(tmp_path)
-        assert state == "updated"
-        assert gitignore.read_text() == (
-            "node_modules/\n"
-            "# Added by code-graph\n"
-            ".code-graph/\n"
-        )
-
-    def test_idempotent_when_present(self, tmp_path):
-        gitignore = tmp_path / ".gitignore"
-        gitignore.write_text(".code-graph/\n")
-
-        state = ensure_repo_gitignore_excludes_crg(tmp_path)
-        assert state == "already-present"
-        assert gitignore.read_text() == ".code-graph/\n"
-
-    def test_treats_wildcard_ignore_as_present(self, tmp_path):
-        gitignore = tmp_path / ".gitignore"
-        gitignore.write_text(".code-graph/**\n")
-
-        state = ensure_repo_gitignore_excludes_crg(tmp_path)
-        assert state == "already-present"
 
 
 class TestIgnorePatterns:

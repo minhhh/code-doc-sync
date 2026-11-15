@@ -1084,13 +1084,6 @@ class GraphStore:
         ).fetchall()
         return {r["qualified_name"] for r in rows}
 
-    def get_node_kind_by_id(self, node_id: int) -> str | None:
-        """Return just the ``kind`` column for a node, or ``None``."""
-        row = self._conn.execute(
-            "SELECT kind FROM nodes WHERE id = ?", (node_id,),
-        ).fetchone()
-        return row["kind"] if row else None
-
     def get_all_call_targets(self, include_file_sources: bool = True) -> set[str]:
         """Return the set of all CALLS-edge target qualified names.
 
