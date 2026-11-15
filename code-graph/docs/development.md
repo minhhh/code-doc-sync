@@ -28,7 +28,7 @@ Two things are ours to shape: the CLI contract and the database schema. The
 engine underneath them we change only as much as a feature needs.
 
 - `src/codegraph/cli/` — **ours**. Typer commands, flags, output payloads, exit
-  codes. One module per verb group (`graph.py`, `lookup.py`, `change.py`,
+  codes. One module per verb group (`lifecycle.py`, `lookup.py`, `change.py`,
   `health.py`, `flows.py`, `arch.py`, `refactor.py`); `app.py` owns the root
   `Typer`, `options.py` the shared option aliases, `common.py` root resolution
   and `_emit`.

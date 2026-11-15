@@ -6,7 +6,7 @@ sub-apps are attached here so the top-level surface stays in one place.
 
 from __future__ import annotations
 
-from . import graph, lookup  # noqa: F401
+from . import lifecycle, lookup  # noqa: F401
 from . import arch, change, flows, health, refactor  # noqa: F401
 from .app import app
 from .arch import arch_app
