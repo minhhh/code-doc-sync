@@ -11,7 +11,7 @@ from codegraph.changes import (
     map_changes_to_nodes,
     parse_git_diff_ranges,
 )
-from codegraph.flows import store_flows, trace_flows
+from codegraph.query.flows import store_flows, trace_flows
 from codegraph.graph import GraphStore
 from codegraph.parsing.parser import EdgeInfo, NodeInfo
 

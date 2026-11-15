@@ -11,7 +11,7 @@ from ..export import GraphTypeError, build_payload, canonical_graph_type
 from ..graph import GraphStore
 from ..incremental import get_db_path
 from ..build import build_or_update
-from ..queries import list_graph_stats
+from ..query.queries import list_graph_stats
 from .app import app
 from .common import _emit, _json_text, _root, _store
 from .options import FormatOption, NoColorOption, PrettyOption, RootOption

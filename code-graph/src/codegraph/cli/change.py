@@ -6,9 +6,9 @@ from typing import Annotated, Optional
 
 import typer
 
-from ..analysis import get_impact_radius
+from ..query.analysis import get_impact_radius
 from ..changes import detect_changes
-from ..flows import affected_flows
+from ..query.flows import affected_flows
 from .common import _emit, _root, _store, _with_hints
 from .options import FormatOption, NoColorOption, PrettyOption, RootOption
 

@@ -6,7 +6,7 @@ from typing import Annotated
 
 import typer
 
-from ..flows import get_flow_by_id, get_flows
+from ..query.flows import get_flow_by_id, get_flows
 from ..graph import GraphStore
 from ..incremental import get_db_path
 from .common import _emit, _root, _with_hints

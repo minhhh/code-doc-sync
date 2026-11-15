@@ -3,7 +3,7 @@
 import tempfile
 from pathlib import Path
 
-from codegraph.flows import (
+from codegraph.query.flows import (
     detect_entry_points,
     get_affected_flows,
     get_flow_by_id,

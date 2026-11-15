@@ -149,7 +149,7 @@ class TestRunPostProcessing:
     def test_fts_search_works_after_post_processing(self):
         run_post_processing(self.store)
 
-        from codegraph.search import search_nodes
+        from codegraph.query.search import search_nodes
 
         hits = search_nodes(self.store, "handle")
         names = {h["name"] for h in hits}
@@ -232,7 +232,7 @@ class TestPostProcessingStepIsolation:
 
     def test_fts_failure_does_not_block_flows(self):
         with patch(
-            "codegraph.search.rebuild_fts_index",
+            "codegraph.query.search.rebuild_fts_index",
             side_effect=ImportError("fts boom"),
         ):
             result = run_post_processing(self.store)
@@ -244,7 +244,7 @@ class TestPostProcessingStepIsolation:
 
     def test_flow_failure_does_not_block_communities(self):
         with patch(
-            "codegraph.flows.trace_flows",
+            "codegraph.query.flows.trace_flows",
             side_effect=ImportError("flow boom"),
         ):
             result = run_post_processing(self.store)
@@ -255,7 +255,7 @@ class TestPostProcessingStepIsolation:
 
     def test_community_failure_still_has_signatures(self):
         with patch(
-            "codegraph.communities.detect_communities",
+            "codegraph.query.communities.detect_communities",
             side_effect=ImportError("comm boom"),
         ):
             result = run_post_processing(self.store)

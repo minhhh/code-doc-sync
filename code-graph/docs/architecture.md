@@ -15,11 +15,11 @@ them, and how queries read the result.
                 │
 ┌───────────────▼──────────────────────────────────────────────┐
 │ engine modules                                               │
-│ incremental, postprocessing, flows, communities, analysis,   │
-│ changes, search, refactor                                    │
+│ build, incremental, postprocessing, changes, refactor        │
 │   graph/    store (SQLite), migrations                       │
 │   parsing/  parser, tsconfig aliases, custom languages       │
 │   resolvers/ receivers, spring, temporal, rescript           │
+│   query/    queries, analysis, flows, communities, search    │
 │   lib/      constants, repo seam (open_store, root paths)    │
 └───────────────┬──────────────────────────────────────────────┘
                 │
@@ -104,6 +104,11 @@ repo-defined languages. Everything else runs after the parse and lives in
 - `resolvers/rescript.py` — ReScript module graph.
 - `resolvers/spring.py` — Spring dependency injection wiring.
 - `resolvers/temporal.py` — Temporal workflow/activity wiring.
+
+`query/` is the read side: `queries.py` (the `query_graph` patterns),
+`analysis.py` (hubs, bridges, gaps, impact), `flows.py`, `communities.py` and
+`search.py`. Every module there takes a `GraphStore` and returns data; none of
+them writes to the database.
 
 ## Storage
 

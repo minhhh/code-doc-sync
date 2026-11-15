@@ -12,7 +12,7 @@ import re
 from collections import Counter, defaultdict
 from typing import Any
 
-from .graph import GraphEdge, GraphNode, GraphStore, _sanitize_name
+from ..graph import GraphEdge, GraphNode, GraphStore, _sanitize_name
 
 # Fixed seed for igraph's RNG so Leiden community detection is reproducible
 # across runs. Without this, two builds of the same graph produce different
@@ -806,7 +806,7 @@ def find_community(
     if include_members:
         cid = match.get("id")
         if cid is not None:
-            from .graph import node_to_dict
+            from ..graph import node_to_dict
 
             match["member_details"] = [
                 node_to_dict(node) for node in store.get_nodes_by_community_id(cid)

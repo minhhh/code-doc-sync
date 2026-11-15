@@ -6,8 +6,8 @@ from typing import Annotated, Any, Optional
 
 import typer
 
-from ..analysis import find_knowledge_gaps, find_large_functions
-from ..analysis import generate_suggested_questions
+from ..query.analysis import find_knowledge_gaps, find_large_functions
+from ..query.analysis import generate_suggested_questions
 from ..refactor import find_dead_code
 from .common import _emit, _root, _store, _with_hints
 from .options import FormatOption, NoColorOption, PrettyOption, RootOption

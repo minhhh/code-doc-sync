@@ -9,8 +9,8 @@ import pytest
 
 from codegraph.graph import GraphStore
 from codegraph.parsing.parser import NodeInfo
-from codegraph.communities import store_communities
-from codegraph.flows import store_flows
+from codegraph.query.communities import store_communities
+from codegraph.query.flows import store_flows
 
 @pytest.fixture
 def store():

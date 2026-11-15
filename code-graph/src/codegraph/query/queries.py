@@ -5,8 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from .graph import edge_to_dict, node_to_dict
-from .lib.repo import open_store, resolve_graph_file_paths
+from ..graph import edge_to_dict, node_to_dict
+from ..lib.repo import open_store, resolve_graph_file_paths
 
 logger = logging.getLogger(__name__)
 

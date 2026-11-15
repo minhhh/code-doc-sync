@@ -6,8 +6,8 @@ from typing import Annotated, Optional
 
 import typer
 
-from ..queries import query_graph
-from ..search import semantic_search_nodes
+from ..query.queries import query_graph
+from ..query.search import semantic_search_nodes
 from .app import app
 from .common import _emit, _root, _with_hints
 from .options import FormatOption, NoColorOption, PrettyOption, RootOption

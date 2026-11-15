@@ -7,7 +7,7 @@ import pytest
 
 from codegraph.graph import GraphStore
 from codegraph.parsing.parser import NodeInfo
-from codegraph.search import rebuild_fts_index
+from codegraph.query.search import rebuild_fts_index
 
 @pytest.fixture
 def store():

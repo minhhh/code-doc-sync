@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from codegraph.communities import (
+from codegraph.query.communities import (
     IGRAPH_AVAILABLE,
     _compute_cohesion_batch,
     _detect_file_based,

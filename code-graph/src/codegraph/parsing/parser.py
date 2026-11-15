@@ -5788,7 +5788,7 @@ class CodeParser:
                 self._collect_import_names(child, language, source, import_map)
 
         # Imports inside function bodies (lazy imports) are still file scope in
-        # practice: ``def f(): from .flows import trace_flows`` makes that name
+        # practice: ``def f(): from .query.flows import trace_flows`` makes that name
         # resolvable for calls in the file. Collect them without overriding the
         # top-level map, which is the more reliable signal for a shared name.
         nested: dict[str, str] = {}

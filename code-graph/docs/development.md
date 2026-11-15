@@ -43,7 +43,7 @@ engine underneath them we change only as much as a feature needs.
 - `tests/` — engine tests plus `tests/test_cli.py` for the CLI.
 
 When you add behavior, put it in an engine module and keep the command thin.
-There is no adapter layer: a new query belongs in `queries.py`, and
+There is no adapter layer: a new query belongs in `query/queries.py`, and
 `cli/lookup.py` calls it.
 
 ## Add a CLI command
@@ -88,7 +88,7 @@ Rules:
 
 ## Add a query pattern
 
-1. Add the pattern to `_QUERY_PATTERNS` in `queries.py`.
+1. Add the pattern to `_QUERY_PATTERNS` in `query/queries.py`.
 2. Implement its branch in `query_graph`.
 3. Reuse `GraphStore` helpers (`get_edges_by_target`, `get_nodes_by_file`,
    `_batch_get_nodes`, …) instead of raw SQL when possible; raw `store._conn`

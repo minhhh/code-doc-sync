@@ -5,7 +5,7 @@ from pathlib import Path
 
 from codegraph.graph import GraphStore
 from codegraph.parsing.parser import NodeInfo
-from codegraph.search import (
+from codegraph.query.search import (
     detect_query_kind_boost,
     rebuild_fts_index,
     search_nodes,

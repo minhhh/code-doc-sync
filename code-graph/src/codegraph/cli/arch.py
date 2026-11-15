@@ -6,12 +6,12 @@ from typing import Annotated, Any, Optional
 
 import typer
 
-from ..analysis import (
+from ..query.analysis import (
     find_bridge_nodes,
     find_hub_nodes,
     find_surprising_connections,
 )
-from ..communities import (
+from ..query.communities import (
     find_community,
     get_architecture_overview,
     get_communities,

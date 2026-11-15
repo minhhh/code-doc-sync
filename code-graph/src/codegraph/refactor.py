@@ -17,7 +17,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Optional, Union
 
-from .flows import _has_framework_decorator, _matches_entry_name
+from .query.flows import _has_framework_decorator, _matches_entry_name
 from .graph import GraphStore, _sanitize_name
 
 logger = logging.getLogger(__name__)
