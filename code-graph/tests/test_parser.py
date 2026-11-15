@@ -397,6 +397,48 @@ class TestCodeParser:
         finally:
             tmp.unlink()
 
+    def test_member_call_on_imported_module_is_external(self):
+        """``json.dumps()`` depends on a module outside the project."""
+        src = (
+            "import json\n"
+            "import logging\n"
+            "\n"
+            "\n"
+            "def report(payload):\n"
+            "    logging.info('x')\n"
+            "    return json.dumps(payload)\n"
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "mod.py"
+            path.write_text(src)
+            _, edges = parse_path(self.parser, path)
+
+        external = {
+            e.target: e.extra.get("external_module")
+            for e in edges
+            if e.kind == "CALLS" and e.extra.get("external_module")
+        }
+        assert external == {"info": "logging", "dumps": "json"}
+
+    def test_member_call_on_local_module_is_not_external(self, tmp_path):
+        """A call on a module that exists in the repo is internal."""
+        (tmp_path / "helpers.py").write_text("def build():\n    return 1\n")
+        src = (
+            "import helpers\n"
+            "\n"
+            "\n"
+            "def run():\n"
+            "    seen = set()\n"
+            "    seen.add(1)\n"
+            "    return helpers.build()\n"
+        )
+        path = tmp_path / "mod.py"
+        path.write_text(src)
+        _, edges = parse_path(self.parser, path)
+
+        flagged = {e.target for e in edges if e.extra.get("external_module")}
+        assert flagged == set(), f"unexpected external flags: {flagged}"
+
     def test_member_call_does_not_resolve_to_same_file_function(self):
         """obj.method() must not bind to a same-file function named ``method``.
 

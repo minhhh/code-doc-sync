@@ -5175,6 +5175,22 @@ class CodeParser:
                     if declared and receiver not in ("self", "this", "cls"):
                         call_extra["receiver_type"] = declared
 
+            # ``logging.getLogger()`` on an imported module is a real
+            # dependency; ``seen.add()`` on a local value is not. The
+            # distinction is decidable: a receiver that comes from an import
+            # whose module has no file in this repository is external.
+            receiver = call_extra.get("receiver")
+            if (
+                receiver
+                and receiver not in ("self", "this", "cls")
+                and "receiver_type" not in call_extra
+            ):
+                module = (import_map or {}).get(receiver)
+                if module and self._resolve_module_to_file(
+                    module, file_path, language,
+                ) is None:
+                    call_extra["external_module"] = module
+
             # A declared receiver owns the method lookup. ``store.get_impact_radius()``
             # must not resolve to a same-file function that happens to be called
             # ``get_impact_radius``: the target stays bare and
@@ -5832,7 +5848,21 @@ class CodeParser:
     ) -> None:
         """Extract imported names and their source modules into import_map."""
         if language == "python":
-            if node.type == "import_from_statement":
+            if node.type == "import_statement":
+                # import x, y.z / import x as y → {x: x, y: x}
+                for child in node.children:
+                    if child.type == "dotted_name":
+                        name = child.text.decode("utf-8", errors="replace")
+                        import_map[name.split(".", 1)[0]] = name
+                    elif child.type == "aliased_import":
+                        names = [
+                            sub.text.decode("utf-8", errors="replace")
+                            for sub in child.children
+                            if sub.type in ("dotted_name", "identifier")
+                        ]
+                        if len(names) == 2:
+                            import_map[names[1]] = names[0]
+            elif node.type == "import_from_statement":
                 # from X.Y import A, B → {A: X.Y, B: X.Y}
                 # from .pkg import A     → {A: .pkg}      (relative)
                 # from .. import A       → {A: ..}
