@@ -397,6 +397,33 @@ class TestCodeParser:
         finally:
             tmp.unlink()
 
+    def test_member_call_does_not_resolve_to_same_file_function(self):
+        """obj.method() must not bind to a same-file function named ``method``.
+
+        The method belongs to the receiver's type; the receiver pass qualifies
+        it. Binding it here by name produced an edge from the caller to itself
+        whenever the caller shared the method's name.
+        """
+        src = (
+            "def store_result(value):\n"
+            "    return value\n"
+            "\n"
+            "\n"
+            "def caller(store):\n"
+            "    return store.store_result(1)\n"
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "mod.py"
+            path.write_text(src)
+            _, edges = parse_path(self.parser, path)
+        calls = [e for e in edges if e.kind == "CALLS" and e.target.endswith("store_result")]
+        assert calls, f"expected a CALLS edge, got {[(e.kind, e.target) for e in edges]}"
+        for edge in calls:
+            assert edge.target == "store_result", (
+                f"member call bound to {edge.target!r} instead of staying bare"
+            )
+            assert edge.extra.get("receiver") == "store"
+
     def test_parse_nonexistent_file(self):
         """Reading is the caller's job; build loops catch OSError per file."""
         with pytest.raises(OSError):

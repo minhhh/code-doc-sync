@@ -54,6 +54,12 @@ A `CALLS` target is qualified in three stages, and any stage may leave it bare:
    prefers a method in the caller's own file, then one in the same language;
    otherwise the target stays bare.
 
+Stages 1 and 2 apply to free names only. A member call (`store.method()`) with
+a receiver never binds to a same-file function of the same name: the method
+belongs to the receiver's type, so the target stays bare for stage 3. `self`,
+`this` and `cls` are the exception, because their methods do live in the
+enclosing class.
+
 The bare targets left over are deliberate. Calls into libraries
 (`cursor.execute`), container methods (`seen.add`), receivers reached through an
 attribute (`self._conn.commit()`), and untyped parameters have no declaration to
@@ -396,7 +402,7 @@ there drops `tests/**`, so what follows is product code only. Reading it:
 `criticality` is the score from the formula above, `nodes` is distinct nodes over
 total tree nodes, four spaces of indentation is one level of depth, and a target
 listed twice is a re-encountered call whose subtree was not walked again. All
-40 traced flows are listed.
+38 traced flows are listed.
 
 <!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/cli/arch.py::arch_bridges
@@ -657,8 +663,8 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/cli/change.py::change_impact
     * entry_point=code-graph/src/codegraph/cli/change.py::change_impact
-    * criticality=0.725
-    * nodes=30/37
+    * criticality=0.7363
+    * nodes=38/48
 * code-graph/src/codegraph/cli/change.py::change_impact
     * → code-graph/src/codegraph/cli/common.py::_emit
         * → code-graph/src/codegraph/cli/common.py::_color_enabled
@@ -670,6 +676,19 @@ listed twice is a re-encountered call whose subtree was not walked again. All
     * → code-graph/src/codegraph/query/analysis.py::get_impact_radius
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
             * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.close
+        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_impact_radius
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._get_impact_radius_networkx
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._batch_get_nodes
+                    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._build_networkx_graph
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_edges_among
+                    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
+                        * → code-graph/src/codegraph/graph/graph_store.py::GraphEdge
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_file
+            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_impact_radius_sql
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._batch_get_nodes
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_edges_among
+                * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_file
         * → code-graph/src/codegraph/graph/graph_store.py::edge_to_dict
             * → code-graph/src/codegraph/graph/graph_store.py::_sanitize_name
         * → code-graph/src/codegraph/graph/graph_store.py::node_to_dict
@@ -688,14 +707,12 @@ listed twice is a re-encountered call whose subtree was not walked again. All
                 * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
                     * → code-graph/src/codegraph/graph/graph_store.py::GraphNode
             * → code-graph/src/codegraph/lib/repo.py::add
-                * → code-graph/src/codegraph/lib/repo.py::add
         * → code-graph/src/codegraph/pipeline/incremental.py::get_changed_files
             * → code-graph/src/codegraph/pipeline/incremental.py::_get_svn_changed_files
             * → code-graph/src/codegraph/pipeline/incremental.py::detect_vcs
         * → code-graph/src/codegraph/pipeline/incremental.py::get_staged_and_unstaged
             * → code-graph/src/codegraph/pipeline/incremental.py::_get_svn_changed_files
             * → code-graph/src/codegraph/pipeline/incremental.py::detect_vcs
-        * → code-graph/src/codegraph/query/analysis.py::get_impact_radius
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
@@ -998,7 +1015,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 * flow=code-graph/src/codegraph/cli/lifecycle.py::build
     * entry_point=code-graph/src/codegraph/cli/lifecycle.py::build
     * criticality=0.7668
-    * nodes=224/458
+    * nodes=224/457
 * code-graph/src/codegraph/cli/lifecycle.py::build
     * → code-graph/src/codegraph/cli/common.py::_emit
         * → code-graph/src/codegraph/cli/common.py::_color_enabled
@@ -1399,7 +1416,6 @@ listed twice is a re-encountered call whose subtree was not walked again. All
                         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
                             * → code-graph/src/codegraph/graph/graph_store.py::GraphEdge
                     * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_file
-                    * → code-graph/src/codegraph/pipeline/incremental.py::_PendingWrites.add
             * → code-graph/src/codegraph/pipeline/incremental.py::get_changed_files
                 * → code-graph/src/codegraph/pipeline/incremental.py::_get_svn_changed_files
                 * → code-graph/src/codegraph/pipeline/incremental.py::detect_vcs
@@ -1548,7 +1564,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 * flow=code-graph/src/codegraph/cli/lifecycle.py::update
     * entry_point=code-graph/src/codegraph/cli/lifecycle.py::update
     * criticality=0.7668
-    * nodes=224/458
+    * nodes=224/457
 * code-graph/src/codegraph/cli/lifecycle.py::update
     * → code-graph/src/codegraph/cli/common.py::_emit
         * → code-graph/src/codegraph/cli/common.py::_color_enabled
@@ -1949,7 +1965,6 @@ listed twice is a re-encountered call whose subtree was not walked again. All
                         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
                             * → code-graph/src/codegraph/graph/graph_store.py::GraphEdge
                     * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_file
-                    * → code-graph/src/codegraph/pipeline/incremental.py::_PendingWrites.add
             * → code-graph/src/codegraph/pipeline/incremental.py::get_changed_files
                 * → code-graph/src/codegraph/pipeline/incremental.py::_get_svn_changed_files
                 * → code-graph/src/codegraph/pipeline/incremental.py::detect_vcs
@@ -2013,7 +2028,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 * flow=code-graph/src/codegraph/cli/lookup.py::query
     * entry_point=code-graph/src/codegraph/cli/lookup.py::query
     * criticality=0.74
-    * nodes=25/28
+    * nodes=25/27
 * code-graph/src/codegraph/cli/lookup.py::query
     * → code-graph/src/codegraph/cli/common.py::_emit
         * → code-graph/src/codegraph/cli/common.py::_color_enabled
@@ -2041,7 +2056,6 @@ listed twice is a re-encountered call whose subtree was not walked again. All
                 * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
                     * → code-graph/src/codegraph/graph/graph_store.py::GraphNode
             * → code-graph/src/codegraph/lib/repo.py::add
-                * → code-graph/src/codegraph/lib/repo.py::add
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
@@ -2218,28 +2232,6 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_impact_radius
-    * entry_point=code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_impact_radius
-    * criticality=0.4127
-    * nodes=11/15
-* code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_impact_radius
-    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._get_impact_radius_networkx
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._batch_get_nodes
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphNode
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._build_networkx_graph
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_edges_among
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_edge
-                * → code-graph/src/codegraph/graph/graph_store.py::GraphEdge
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_file
-            * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
-    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_impact_radius_sql
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._batch_get_nodes
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_edges_among
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_nodes_by_file
-<!-- CTX-SYNC:FLOW-END -->
-
-<!-- CTX-SYNC:FLOW-START -->
 * flow=code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_stats
     * entry_point=code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_stats
     * criticality=0.36
@@ -2261,16 +2253,6 @@ listed twice is a re-encountered call whose subtree was not walked again. All
     * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_node
         * → code-graph/src/codegraph/graph/graph_store.py::GraphStore._row_to_node
             * → code-graph/src/codegraph/graph/graph_store.py::GraphNode
-<!-- CTX-SYNC:FLOW-END -->
-
-<!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/graph/graph_store.py::GraphStore.resolve_bare_call_targets
-    * entry_point=code-graph/src/codegraph/graph/graph_store.py::GraphStore.resolve_bare_call_targets
-    * criticality=0.36
-    * nodes=2/3
-* code-graph/src/codegraph/graph/graph_store.py::GraphStore.resolve_bare_call_targets
-    * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.commit
-        * → code-graph/src/codegraph/graph/graph_store.py::GraphStore.commit
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->

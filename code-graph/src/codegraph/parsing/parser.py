@@ -2185,6 +2185,12 @@ class CodeParser:
 
         resolved: list[EdgeInfo] = []
         for edge in edges:
+            receiver = (edge.extra or {}).get("receiver")
+            if receiver and receiver not in ("self", "this", "cls"):
+                # Member call: the method belongs to the receiver's type, not
+                # to this file's scope. Leave it bare for the receiver pass.
+                resolved.append(edge)
+                continue
             if edge.kind in ("CALLS", "REFERENCES") and "::" not in edge.target:
                 if edge.target in symbols:
                     edge = EdgeInfo(
@@ -5169,14 +5175,16 @@ class CodeParser:
                     if declared and receiver not in ("self", "this", "cls"):
                         call_extra["receiver_type"] = declared
 
-            # When a receiver is present, skip scope-based resolution: the method
-            # lives on the receiver's type, not in the current file's scope.
-            # The spring_resolver post-pass will do the correct cross-type lookup.
-            # Other languages still go through scope resolution, because an
-            # imported free function can be called through an object
-            # (``obj.helper()``); the receiver resolver only touches edges that
-            # remain bare.
-            if language in ("java", "pascal") and call_extra.get("receiver"):
+            # A declared receiver owns the method lookup. ``store.get_impact_radius()``
+            # must not resolve to a same-file function that happens to be called
+            # ``get_impact_radius``: the target stays bare and
+            # resolvers/receivers.py qualifies it from the receiver's type.
+            # self/this/cls are the exception, since their methods live in the
+            # enclosing class and scope resolution gets those right.
+            receiver = call_extra.get("receiver")
+            if receiver and receiver not in ("self", "this", "cls"):
+                target = call_name
+            elif language in ("java", "pascal") and receiver:
                 target = call_name
             else:
                 target = self._resolve_call_target(
