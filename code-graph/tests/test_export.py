@@ -126,7 +126,7 @@ def test_flows_export_shape(tmp_path: Path) -> None:
         } <= set(flow)
         assert flow["root"]["qn"] == flow["entry_point"]
         assert flow["tree_nodes"] >= flow["unique_nodes"] >= 1
-        assert flow["key"].startswith(f"{flow['entry_point']}#")
+        assert flow["key"] == flow["entry_point"]
 
 
 def test_flows_tree_keeps_edges_and_dedupes_targets(tmp_path: Path) -> None:

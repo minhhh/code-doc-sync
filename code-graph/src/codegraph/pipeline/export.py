@@ -63,18 +63,16 @@ def canonical_graph_type(value: str) -> str:
     return canonical
 
 
-def flow_key(entry_point: str, path: list[str]) -> str:
-    """Stable text identity for one flow.
+def flow_key(entry_point: str) -> str:
+    """Stable text identity for one flow: its entry point.
 
-    The digest covers the ordered qualified names of the traced path, so the key
-    survives rebuilds, where the integer flow id is reissued. Tracing emits one
-    flow per entry point, so the path digest is a stability measure rather than
-    a disambiguator.
+    Tracing emits one flow per entry point, so the qualified name is already
+    unique and survives rebuilds, where the integer flow id is reissued. A path
+    digest was tried here and removed: it changed the key whenever any call in
+    the flow moved, so ``ctx-sync`` saw a new flow, left the old block in place
+    and appended a duplicate.
     """
-    digest = hashlib.sha1(
-        "\n".join(path).encode("utf-8"), usedforsecurity=False
-    ).hexdigest()[:_FLOW_KEY_DIGEST]
-    return f"{entry_point}#{digest}" if entry_point else digest
+    return entry_point
 
 
 def community_key(name: str, members: list[str]) -> str:
@@ -213,7 +211,7 @@ def _flows_payload(
             continue
         root = _flow_tree(qns, calls_out)
         flows.append({
-            "key": flow_key(qns[0], qns),
+            "key": flow_key(qns[0]),
             "name": row["name"],
             "entry_point": qns[0],
             "criticality": round(float(row["criticality"]), 4),

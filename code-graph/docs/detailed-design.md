@@ -30,10 +30,11 @@ Two identity rules follow from that:
 exported `<name>#<digest>` key, where the digest is the first 12 hex characters
 of a SHA-1 over the *sorted* member list (`ctx-sync` writes that key as
 `community::<name>#<digest>`).
-- Flow identity is `<entry point>#<digest>`, the same digest length over the
-*ordered* qualified names of the traced path. One entry point yields one flow,
-so the path digest keeps the key stable across rebuilds rather than separating
-sibling flows.
+- Flow identity is the qualified name of its entry point, with no digest. One
+  entry point yields one flow, so the name is already unique and stable across
+  rebuilds. A digest over the traced path was removed because it changed the key
+  whenever a call inside the flow moved, which made `ctx-sync` treat the flow as
+  new, keep the old block and append a second copy.
 
 ## Call resolution
 
@@ -398,7 +399,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 40 traced flows are listed.
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/arch.py::arch_bridges#d9cb1fac8a62
+* flow=code-graph/src/codegraph/cli/arch.py::arch_bridges
     * entry_point=code-graph/src/codegraph/cli/arch.py::arch_bridges
     * criticality=0.7092
     * nodes=26/27
@@ -432,7 +433,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/arch.py::arch_communities#c678e26f72a4
+* flow=code-graph/src/codegraph/cli/arch.py::arch_communities
     * entry_point=code-graph/src/codegraph/cli/arch.py::arch_communities
     * criticality=0.7117
     * nodes=23/25
@@ -464,7 +465,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/arch.py::arch_community#49110e6f8d3c
+* flow=code-graph/src/codegraph/cli/arch.py::arch_community
     * entry_point=code-graph/src/codegraph/cli/arch.py::arch_community
     * criticality=0.7168
     * nodes=28/31
@@ -502,7 +503,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/arch.py::arch_hubs#0872100019ba
+* flow=code-graph/src/codegraph/cli/arch.py::arch_hubs
     * entry_point=code-graph/src/codegraph/cli/arch.py::arch_hubs
     * criticality=0.7079
     * nodes=28/29
@@ -538,7 +539,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/arch.py::arch_overview#1c3a9cbbbe74
+* flow=code-graph/src/codegraph/cli/arch.py::arch_overview
     * entry_point=code-graph/src/codegraph/cli/arch.py::arch_overview
     * criticality=0.7257
     * nodes=28/31
@@ -576,7 +577,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/arch.py::arch_surprises#7bca24983451
+* flow=code-graph/src/codegraph/cli/arch.py::arch_surprises
     * entry_point=code-graph/src/codegraph/cli/arch.py::arch_surprises
     * criticality=0.7079
     * nodes=28/29
@@ -612,7 +613,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/change.py::change_flows#2f81cc5b99f2
+* flow=code-graph/src/codegraph/cli/change.py::change_flows
     * entry_point=code-graph/src/codegraph/cli/change.py::change_flows
     * criticality=0.7412
     * nodes=32/35
@@ -654,7 +655,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/change.py::change_impact#fc839178ea32
+* flow=code-graph/src/codegraph/cli/change.py::change_impact
     * entry_point=code-graph/src/codegraph/cli/change.py::change_impact
     * criticality=0.725
     * nodes=30/37
@@ -698,7 +699,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/change.py::change_risk#0bb79101b326
+* flow=code-graph/src/codegraph/cli/change.py::change_risk
     * entry_point=code-graph/src/codegraph/cli/change.py::change_risk
     * criticality=0.7147
     * nodes=51/61
@@ -766,7 +767,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/flows.py::flows_list#da67e38e62d7
+* flow=code-graph/src/codegraph/cli/flows.py::flows_list
     * entry_point=code-graph/src/codegraph/cli/flows.py::flows_list
     * criticality=0.7163
     * nodes=19/19
@@ -792,7 +793,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/flows.py::flows_show#998c2a6081f0
+* flow=code-graph/src/codegraph/cli/flows.py::flows_show
     * entry_point=code-graph/src/codegraph/cli/flows.py::flows_show
     * criticality=0.7127
     * nodes=22/22
@@ -821,7 +822,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/health.py::dead_code#f7e011141dce
+* flow=code-graph/src/codegraph/cli/health.py::dead_code
     * entry_point=code-graph/src/codegraph/cli/health.py::dead_code
     * criticality=0.7103
     * nodes=37/44
@@ -872,7 +873,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/health.py::knowledge_gaps#d7ef35ef4c11
+* flow=code-graph/src/codegraph/cli/health.py::knowledge_gaps
     * entry_point=code-graph/src/codegraph/cli/health.py::knowledge_gaps
     * criticality=0.7072
     * nodes=29/30
@@ -909,7 +910,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/health.py::large_functions#59d878a1a609
+* flow=code-graph/src/codegraph/cli/health.py::large_functions
     * entry_point=code-graph/src/codegraph/cli/health.py::large_functions
     * criticality=0.7341
     * nodes=22/24
@@ -940,7 +941,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/health.py::suggested_questions#67c9642a3f26
+* flow=code-graph/src/codegraph/cli/health.py::suggested_questions
     * entry_point=code-graph/src/codegraph/cli/health.py::suggested_questions
     * criticality=0.7441
     * nodes=34/47
@@ -994,7 +995,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/lifecycle.py::build#2ffb690108c0
+* flow=code-graph/src/codegraph/cli/lifecycle.py::build
     * entry_point=code-graph/src/codegraph/cli/lifecycle.py::build
     * criticality=0.7668
     * nodes=224/458
@@ -1459,7 +1460,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/lifecycle.py::export_graph#8a1622785c40
+* flow=code-graph/src/codegraph/cli/lifecycle.py::export_graph
     * entry_point=code-graph/src/codegraph/cli/lifecycle.py::export_graph
     * criticality=0.7398
     * nodes=42/54
@@ -1520,7 +1521,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/lifecycle.py::status#3240d2db8efa
+* flow=code-graph/src/codegraph/cli/lifecycle.py::status
     * entry_point=code-graph/src/codegraph/cli/lifecycle.py::status
     * criticality=0.7313
     * nodes=16/17
@@ -1544,7 +1545,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/lifecycle.py::update#aede8bc1203e
+* flow=code-graph/src/codegraph/cli/lifecycle.py::update
     * entry_point=code-graph/src/codegraph/cli/lifecycle.py::update
     * criticality=0.7668
     * nodes=224/458
@@ -2009,7 +2010,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/lookup.py::query#f59704f9a198
+* flow=code-graph/src/codegraph/cli/lookup.py::query
     * entry_point=code-graph/src/codegraph/cli/lookup.py::query
     * criticality=0.74
     * nodes=25/28
@@ -2044,7 +2045,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/lookup.py::search#a8d55c8d245c
+* flow=code-graph/src/codegraph/cli/lookup.py::search
     * entry_point=code-graph/src/codegraph/cli/lookup.py::search
     * criticality=0.7714
     * nodes=28/30
@@ -2081,7 +2082,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/refactor.py::refactor_apply#8d1c1ffd33f3
+* flow=code-graph/src/codegraph/cli/refactor.py::refactor_apply
     * entry_point=code-graph/src/codegraph/cli/refactor.py::refactor_apply
     * criticality=0.615
     * nodes=10/10
@@ -2098,7 +2099,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/refactor.py::refactor_rename#3ac9918ed593
+* flow=code-graph/src/codegraph/cli/refactor.py::refactor_rename
     * entry_point=code-graph/src/codegraph/cli/refactor.py::refactor_rename
     * criticality=0.6986
     * nodes=29/31
@@ -2136,7 +2137,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/cli/refactor.py::refactor_suggest#01b9b937defd
+* flow=code-graph/src/codegraph/cli/refactor.py::refactor_suggest
     * entry_point=code-graph/src/codegraph/cli/refactor.py::refactor_suggest
     * criticality=0.7088
     * nodes=40/50
@@ -2193,7 +2194,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/graph/graph_store.py::GraphStore.__exit__#4fda1c8d2f68
+* flow=code-graph/src/codegraph/graph/graph_store.py::GraphStore.__exit__
     * entry_point=code-graph/src/codegraph/graph/graph_store.py::GraphStore.__exit__
     * criticality=0.16
     * nodes=2/3
@@ -2203,7 +2204,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/graph/graph_store.py::GraphStore.__init__#13652b27e5af
+* flow=code-graph/src/codegraph/graph/graph_store.py::GraphStore.__init__
     * entry_point=code-graph/src/codegraph/graph/graph_store.py::GraphStore.__init__
     * criticality=0.445
     * nodes=6/7
@@ -2217,7 +2218,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_impact_radius#a96d82195799
+* flow=code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_impact_radius
     * entry_point=code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_impact_radius
     * criticality=0.4127
     * nodes=11/15
@@ -2239,7 +2240,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_stats#535ea9c5e8bb
+* flow=code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_stats
     * entry_point=code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_stats
     * criticality=0.36
     * nodes=3/3
@@ -2249,7 +2250,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_subgraph#e19dd511cc63
+* flow=code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_subgraph
     * entry_point=code-graph/src/codegraph/graph/graph_store.py::GraphStore.get_subgraph
     * criticality=0.38
     * nodes=7/7
@@ -2263,7 +2264,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/graph/graph_store.py::GraphStore.resolve_bare_call_targets#1533319bf4b8
+* flow=code-graph/src/codegraph/graph/graph_store.py::GraphStore.resolve_bare_call_targets
     * entry_point=code-graph/src/codegraph/graph/graph_store.py::GraphStore.resolve_bare_call_targets
     * criticality=0.36
     * nodes=2/3
@@ -2273,7 +2274,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/graph/graph_store.py::GraphStore.store_file_batch#ce7e1686e95c
+* flow=code-graph/src/codegraph/graph/graph_store.py::GraphStore.store_file_batch
     * entry_point=code-graph/src/codegraph/graph/graph_store.py::GraphStore.store_file_batch
     * criticality=0.3978
     * nodes=9/13
@@ -2293,7 +2294,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/graph/graph_store.py::GraphStore.store_file_nodes_edges#f4086900a2f9
+* flow=code-graph/src/codegraph/graph/graph_store.py::GraphStore.store_file_nodes_edges
     * entry_point=code-graph/src/codegraph/graph/graph_store.py::GraphStore.store_file_nodes_edges
     * criticality=0.3978
     * nodes=9/13
@@ -2313,7 +2314,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/graph/migrations.py::_migrate_v1#56f44824748f
+* flow=code-graph/src/codegraph/graph/migrations.py::_migrate_v1
     * entry_point=code-graph/src/codegraph/graph/migrations.py::_migrate_v1
     * criticality=0.36
     * nodes=3/3
@@ -2323,7 +2324,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/parsing/parser.py::CodeParser.__init__#026204eada8b
+* flow=code-graph/src/codegraph/parsing/parser.py::CodeParser.__init__
     * entry_point=code-graph/src/codegraph/parsing/parser.py::CodeParser.__init__
     * criticality=0.5713
     * nodes=8/8
@@ -2338,7 +2339,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/parsing/tsconfig.py::TsconfigResolver.resolve_alias#862aadc157b3
+* flow=code-graph/src/codegraph/parsing/tsconfig.py::TsconfigResolver.resolve_alias
     * entry_point=code-graph/src/codegraph/parsing/tsconfig.py::TsconfigResolver.resolve_alias
     * criticality=0.39
     * nodes=8/9
@@ -2354,7 +2355,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=code-graph/src/codegraph/pipeline/incremental.py::_parse_single_file#f22fc797c1b0
+* flow=code-graph/src/codegraph/pipeline/incremental.py::_parse_single_file
     * entry_point=code-graph/src/codegraph/pipeline/incremental.py::_parse_single_file
     * criticality=0.4931
     * nodes=124/309
@@ -2670,7 +2671,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=ctx-sync/src/ctxsync/cli.py::sync#1cebb6e80c07
+* flow=ctx-sync/src/ctxsync/cli.py::sync
     * entry_point=ctx-sync/src/ctxsync/cli.py::sync
     * criticality=0.7
     * nodes=45/75
@@ -2752,7 +2753,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=ctx-sync/src/ctxsync/flows_doc.py::parse_blocks#8b860d2805e9
+* flow=ctx-sync/src/ctxsync/flows_doc.py::parse_blocks
     * entry_point=ctx-sync/src/ctxsync/flows_doc.py::parse_blocks
     * criticality=0.36
     * nodes=2/2
@@ -2761,7 +2762,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=ctx-sync/src/ctxsync/flows_doc.py::render_document#42961d4eae88
+* flow=ctx-sync/src/ctxsync/flows_doc.py::render_document
     * entry_point=ctx-sync/src/ctxsync/flows_doc.py::render_document
     * criticality=0.445
     * nodes=6/7
@@ -2775,7 +2776,7 @@ listed twice is a re-encountered call whose subtree was not walked again. All
 <!-- CTX-SYNC:FLOW-END -->
 
 <!-- CTX-SYNC:FLOW-START -->
-* flow=ctx-sync/src/ctxsync/sync.py::render_empty#1bc1ada8ff17
+* flow=ctx-sync/src/ctxsync/sync.py::render_empty
     * entry_point=ctx-sync/src/ctxsync/sync.py::render_empty
     * criticality=0.54
     * nodes=15/17
