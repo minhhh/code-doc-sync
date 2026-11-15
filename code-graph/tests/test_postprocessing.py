@@ -5,9 +5,9 @@ from pathlib import Path
 from unittest.mock import patch
 
 from codegraph.graph import GraphStore
-from codegraph.incremental import full_build
+from codegraph.pipeline.incremental import full_build
 from codegraph.parsing.parser import EdgeInfo, NodeInfo
-from codegraph.postprocessing import run_post_processing
+from codegraph.pipeline.postprocessing import run_post_processing
 
 
 def _get_signature(store, qualified_name):
@@ -275,7 +275,7 @@ class TestToolBuildUsesSharedPipeline:
         db_path = tmp_path / ".code-graph" / "graph.db"
         store = GraphStore(db_path)
         try:
-            mock_target = "codegraph.incremental.get_all_tracked_files"
+            mock_target = "codegraph.pipeline.incremental.get_all_tracked_files"
             with patch(mock_target, return_value=["sample.py"]):
                 full_build(tmp_path, store)
 

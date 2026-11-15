@@ -17,7 +17,7 @@ from typing import Optional
 
 from ..lib.constants import SECURITY_KEYWORDS as _SECURITY_KEYWORDS
 from ..graph import FlowAdjacency, GraphNode, GraphStore, _sanitize_name
-from ..incremental import get_changed_files, get_staged_and_unstaged
+from ..pipeline.incremental import get_changed_files, get_staged_and_unstaged
 
 logger = logging.getLogger(__name__)
 

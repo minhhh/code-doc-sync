@@ -16,7 +16,7 @@ from ..query.communities import (
     get_architecture_overview,
     get_communities,
 )
-from ..incremental import get_db_path
+from ..pipeline.incremental import get_db_path
 from .common import _emit, _root, _store, _with_hints
 from .options import FormatOption, NoColorOption, PrettyOption, RootOption
 

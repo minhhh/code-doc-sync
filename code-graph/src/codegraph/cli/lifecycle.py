@@ -7,10 +7,10 @@ from typing import Annotated, Optional
 
 import typer
 
-from ..export import GraphTypeError, build_payload, canonical_graph_type
+from ..pipeline.export import GraphTypeError, build_payload, canonical_graph_type
 from ..graph import GraphStore
-from ..incremental import get_db_path
-from ..build import build_or_update
+from ..pipeline.incremental import get_db_path
+from ..pipeline.build import build_or_update
 from ..query.queries import list_graph_stats
 from .app import app
 from .common import _emit, _json_text, _root, _store

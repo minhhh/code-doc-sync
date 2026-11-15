@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from ..graph import GraphStore
-from ..incremental import find_project_root, get_db_path
+from ..pipeline.incremental import find_project_root, get_db_path
 
 
 def validate_repo_root(path: "Path | str") -> Path:

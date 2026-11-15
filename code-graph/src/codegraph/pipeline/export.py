@@ -15,9 +15,9 @@ from collections import Counter, defaultdict, deque
 from pathlib import Path
 from typing import Any
 
-from .query.communities import get_architecture_overview
-from .query.flows import get_flows
-from .graph import GraphStore, edge_to_dict, node_to_dict
+from ..query.communities import get_architecture_overview
+from ..query.flows import get_flows
+from ..graph import GraphStore, edge_to_dict, node_to_dict
 
 CALL_GRAPH = "call-graph"
 COMMUNITY = "community"

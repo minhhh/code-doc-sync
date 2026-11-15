@@ -1869,7 +1869,7 @@ class TestRescriptCrossModuleResolver:
         import subprocess
 
         from codegraph.graph import GraphStore
-        from codegraph.incremental import full_build
+        from codegraph.pipeline.incremental import full_build
 
         (tmp_path / "LogicUtils.res").write_text(
             "let safeParse = (s) => s\n"
@@ -2205,8 +2205,8 @@ class TestSpringDIResolver:
         )
 
         from codegraph.graph import GraphStore
-        from codegraph.incremental import full_build
-        from codegraph.postprocessing import run_post_processing
+        from codegraph.pipeline.incremental import full_build
+        from codegraph.pipeline.postprocessing import run_post_processing
 
         store = GraphStore(str(tmp_path / "graph.db"))
         result = full_build(tmp_path, store)
@@ -2343,7 +2343,7 @@ class TestTemporalResolver:
         )
 
         from codegraph.graph import GraphStore
-        from codegraph.incremental import full_build
+        from codegraph.pipeline.incremental import full_build
 
         store = GraphStore(str(tmp_path / "graph.db"))
         result = full_build(tmp_path, store)

@@ -8,7 +8,7 @@ import typer
 
 from ..query.flows import get_flow_by_id, get_flows
 from ..graph import GraphStore
-from ..incremental import get_db_path
+from ..pipeline.incremental import get_db_path
 from .common import _emit, _root, _with_hints
 from .options import FormatOption, NoColorOption, PrettyOption, RootOption
 

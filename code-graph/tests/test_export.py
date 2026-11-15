@@ -9,7 +9,7 @@ import pytest
 from typer.testing import CliRunner
 
 from codegraph.cli import app
-from codegraph.export import GraphTypeError, canonical_graph_type
+from codegraph.pipeline.export import GraphTypeError, canonical_graph_type
 
 runner = CliRunner()
 

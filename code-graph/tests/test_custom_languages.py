@@ -289,7 +289,7 @@ class TestParserIntegration:
 
     def test_full_build_includes_custom_language(self, tmp_path):
         from codegraph.graph import GraphStore
-        from codegraph.incremental import full_build
+        from codegraph.pipeline.incremental import full_build
 
         repo, src = self._repo(tmp_path)
         db_path = repo / ".code-graph" / "graph.db"

@@ -20,7 +20,7 @@ import sqlite3
 import time
 from typing import Any
 
-from .graph import GraphStore
+from ..graph import GraphStore
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +113,7 @@ def _rebuild_fts_index(
 ) -> None:
     """Rebuild the FTS5 full-text search index."""
     try:
-        from .query.search import rebuild_fts_index
+        from ..query.search import rebuild_fts_index
 
         fts_count = rebuild_fts_index(store)
         result["fts_indexed"] = fts_count
@@ -131,11 +131,11 @@ def _trace_flows(
     """Trace execution flows, incrementally when changed files are known."""
     try:
         if changed_files:
-            from .query.flows import incremental_trace_flows
+            from ..query.flows import incremental_trace_flows
 
             count = incremental_trace_flows(store, changed_files)
         else:
-            from .query.flows import store_flows, trace_flows
+            from ..query.flows import store_flows, trace_flows
 
             count = store_flows(store, trace_flows(store))
         result["flows_detected"] = count
@@ -153,11 +153,11 @@ def _detect_communities(
     """Detect code communities, incrementally when changed files are known."""
     try:
         if changed_files:
-            from .query.communities import incremental_detect_communities
+            from ..query.communities import incremental_detect_communities
 
             count = incremental_detect_communities(store, changed_files)
         else:
-            from .query.communities import detect_communities, store_communities
+            from ..query.communities import detect_communities, store_communities
 
             count = store_communities(store, detect_communities(store))
         result["communities_detected"] = count

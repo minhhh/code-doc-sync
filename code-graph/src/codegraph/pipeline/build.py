@@ -11,7 +11,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from .graph import GraphStore
+from ..graph import GraphStore
 from .incremental import full_build, incremental_update
 from .postprocessing import run_post_processing
 

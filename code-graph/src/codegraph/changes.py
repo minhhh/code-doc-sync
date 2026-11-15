@@ -16,7 +16,7 @@ from typing import Any
 from .lib.constants import SECURITY_KEYWORDS as _SECURITY_KEYWORDS
 from .query.flows import get_affected_flows
 from .graph import GraphNode, GraphStore, _sanitize_name, node_to_dict
-from .incremental import get_changed_files, get_staged_and_unstaged
+from .pipeline.incremental import get_changed_files, get_staged_and_unstaged
 
 logger = logging.getLogger(__name__)
 

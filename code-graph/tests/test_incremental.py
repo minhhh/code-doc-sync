@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch  # noqa: F401 – patch used in tests
 
 from codegraph.graph import GraphStore
-from codegraph.incremental import (
+from codegraph.pipeline.incremental import (
     _PendingWrites,
     _is_binary,
     _is_match,
@@ -230,7 +230,7 @@ class TestIgnorePatterns:
 
     def test_should_ignore_framework_defaults(self):
         """Default patterns should cover Laravel, Gradle, Flutter, and caches."""
-        from codegraph.incremental import DEFAULT_IGNORE_PATTERNS
+        from codegraph.pipeline.incremental import DEFAULT_IGNORE_PATTERNS
 
         patterns = DEFAULT_IGNORE_PATTERNS
         # Laravel/PHP
@@ -300,7 +300,7 @@ class TestDataDir:
     def test_default_uses_repo_subdir(self, tmp_path, monkeypatch):
         """Without CODE_GRAPH_DATA_DIR, graphs live at <repo>/.code-graph."""
         monkeypatch.delenv("CODE_GRAPH_DATA_DIR", raising=False)
-        from codegraph.incremental import get_data_dir
+        from codegraph.pipeline.incremental import get_data_dir
         result = get_data_dir(tmp_path)
         assert result == tmp_path / ".code-graph"
         assert result.is_dir()
@@ -319,7 +319,7 @@ class TestDataDir:
         byte 0x97), producing a file that cannot be decoded as UTF-8.
         """
         monkeypatch.delenv("CODE_GRAPH_DATA_DIR", raising=False)
-        from codegraph.incremental import get_data_dir
+        from codegraph.pipeline.incremental import get_data_dir
         data_dir = get_data_dir(tmp_path)
         gi = data_dir / ".gitignore"
         assert gi.is_file()
@@ -347,7 +347,7 @@ class TestDataDir:
         repo = tmp_path / "project"
         repo.mkdir()
         monkeypatch.setenv("CODE_GRAPH_DATA_DIR", str(external))
-        from codegraph.incremental import get_data_dir
+        from codegraph.pipeline.incremental import get_data_dir
         result = get_data_dir(repo)
         assert result == external.resolve()
         assert result.is_dir()
@@ -360,7 +360,7 @@ class TestDataDir:
         repo = tmp_path / "project"
         repo.mkdir()
         monkeypatch.setenv("CODE_GRAPH_DATA_DIR", str(external))
-        from codegraph.incremental import get_db_path
+        from codegraph.pipeline.incremental import get_db_path
         db_path = get_db_path(repo)
         assert db_path == external.resolve() / "graph.db"
         assert db_path.parent.is_dir()
@@ -371,7 +371,7 @@ class TestDataDir:
         external_repo = tmp_path / "elsewhere"
         external_repo.mkdir()
         monkeypatch.setenv("CODE_GRAPH_REPO_ROOT", str(external_repo))
-        from codegraph.incremental import find_project_root
+        from codegraph.pipeline.incremental import find_project_root
         result = find_project_root(PathType.cwd())
         assert result == external_repo.resolve()
 
@@ -383,7 +383,7 @@ class TestDataDir:
         monkeypatch.setenv(
             "CODE_GRAPH_REPO_ROOT", str(tmp_path / "does-not-exist-123"),
         )
-        from codegraph.incremental import find_project_root
+        from codegraph.pipeline.incremental import find_project_root
         result = find_project_root(tmp_path)
         # Should NOT equal the bogus env value
         assert result != tmp_path / "does-not-exist-123"
@@ -393,7 +393,7 @@ class TestDataDirResolution:
     """Tests for data_dir resolution."""
 
     def test_env_var_overrides_default(self, tmp_path, monkeypatch):
-        from codegraph.incremental import get_data_dir
+        from codegraph.pipeline.incremental import get_data_dir
 
         repo = tmp_path / "project"
         repo.mkdir()
@@ -405,7 +405,7 @@ class TestDataDirResolution:
         assert result.is_dir()
 
     def test_default_data_dir_is_created(self, tmp_path, monkeypatch):
-        from codegraph.incremental import get_data_dir
+        from codegraph.pipeline.incremental import get_data_dir
 
         repo = tmp_path / "project"
         repo.mkdir()
@@ -433,7 +433,7 @@ class TestIsBinary:
 
 
 class TestGitOperations:
-    @patch("codegraph.incremental.subprocess.run")
+    @patch("codegraph.pipeline.incremental.subprocess.run")
     def test_get_changed_files(self, mock_run, tmp_path):
         mock_run.return_value = MagicMock(
             returncode=0,
@@ -446,7 +446,7 @@ class TestGitOperations:
         assert "git" in call_args[0][0]
         assert call_args[1].get("timeout") == 30
 
-    @patch("codegraph.incremental.subprocess.run")
+    @patch("codegraph.pipeline.incremental.subprocess.run")
     def test_get_changed_files_fallback(self, mock_run, tmp_path):
         # First call fails, second succeeds
         mock_run.side_effect = [
@@ -457,13 +457,13 @@ class TestGitOperations:
         assert result == ["staged.py"]
         assert mock_run.call_count == 2
 
-    @patch("codegraph.incremental.subprocess.run")
+    @patch("codegraph.pipeline.incremental.subprocess.run")
     def test_get_changed_files_timeout(self, mock_run, tmp_path):
         mock_run.side_effect = subprocess.TimeoutExpired("git", 30)
         result = get_changed_files(tmp_path)
         assert result == []
 
-    @patch("codegraph.incremental.subprocess.run")
+    @patch("codegraph.pipeline.incremental.subprocess.run")
     def test_get_staged_and_unstaged(self, mock_run, tmp_path):
         mock_run.return_value = MagicMock(
             returncode=0,
@@ -476,7 +476,7 @@ class TestGitOperations:
         # old.py should NOT be in results (renamed away)
         assert "old.py" not in result
 
-    @patch("codegraph.incremental.subprocess.run")
+    @patch("codegraph.pipeline.incremental.subprocess.run")
     def test_get_all_tracked_files(self, mock_run, tmp_path):
         mock_run.return_value = MagicMock(
             returncode=0,
@@ -486,7 +486,7 @@ class TestGitOperations:
         result = list(get_all_tracked_files(tmp_path))
         assert result == ["a.py", "b.py", "c.go"]
 
-    @patch("codegraph.incremental.subprocess.run")
+    @patch("codegraph.pipeline.incremental.subprocess.run")
     def test_get_all_tracked_files_recurse_submodules_param(
         self, mock_run, tmp_path
     ):
@@ -500,7 +500,7 @@ class TestGitOperations:
         cmd = mock_run.call_args[0][0]
         assert "--recurse-submodules" in cmd
 
-    @patch("codegraph.incremental.subprocess.run")
+    @patch("codegraph.pipeline.incremental.subprocess.run")
     def test_get_all_tracked_files_no_recurse_by_default(
         self, mock_run, tmp_path
     ):
@@ -514,8 +514,8 @@ class TestGitOperations:
         cmd = mock_run.call_args[0][0]
         assert "--recurse-submodules" not in cmd
 
-    @patch("codegraph.incremental.subprocess.run")
-    @patch("codegraph.incremental._RECURSE_SUBMODULES", True)
+    @patch("codegraph.pipeline.incremental.subprocess.run")
+    @patch("codegraph.pipeline.incremental._RECURSE_SUBMODULES", True)
     def test_get_all_tracked_files_env_var_fallback(
         self, mock_run, tmp_path
     ):
@@ -530,8 +530,8 @@ class TestGitOperations:
         cmd = mock_run.call_args[0][0]
         assert "--recurse-submodules" in cmd
 
-    @patch("codegraph.incremental.subprocess.run")
-    @patch("codegraph.incremental._RECURSE_SUBMODULES", True)
+    @patch("codegraph.pipeline.incremental.subprocess.run")
+    @patch("codegraph.pipeline.incremental._RECURSE_SUBMODULES", True)
     def test_get_all_tracked_files_param_overrides_env(
         self, mock_run, tmp_path
     ):
@@ -557,7 +557,7 @@ class TestFullBuild:
         db_path = tmp_path / "test.db"
         store = GraphStore(db_path)
         try:
-            mock_target = "codegraph.incremental.get_all_tracked_files"
+            mock_target = "codegraph.pipeline.incremental.get_all_tracked_files"
             with patch(mock_target, return_value=["sample.py"]):
                 result = full_build(tmp_path, store)
             assert result["files_parsed"] == 1
@@ -601,7 +601,7 @@ class TestStoreBatching:
             with (
                 patch.dict("os.environ", {"CODE_GRAPH_STORE_BATCH_SIZE": "2"}),
                 patch(
-                    "codegraph.incremental.get_all_tracked_files",
+                    "codegraph.pipeline.incremental.get_all_tracked_files",
                     return_value=names,
                 ),
                 patch.object(
@@ -631,7 +631,7 @@ class TestStoreBatching:
             with (
                 patch.dict("os.environ", {"CODE_GRAPH_STORE_BATCH_SIZE": "1"}),
                 patch(
-                    "codegraph.incremental.get_all_tracked_files",
+                    "codegraph.pipeline.incremental.get_all_tracked_files",
                     return_value=names,
                 ),
                 patch.object(
@@ -667,7 +667,7 @@ class TestStoreBatching:
             with (
                 patch.dict("os.environ", {"CODE_GRAPH_STORE_BATCH_SIZE": "5"}),
                 patch(
-                    "codegraph.incremental.get_all_tracked_files",
+                    "codegraph.pipeline.incremental.get_all_tracked_files",
                     return_value=names,
                 ),
                 patch.object(CodeParser, "parse_bytes", interrupted),
@@ -783,7 +783,7 @@ class TestParallelParsing:
             )
 
         tracked = [f"mod{i}.py" for i in range(10)]
-        mock_target = "codegraph.incremental.get_all_tracked_files"
+        mock_target = "codegraph.pipeline.incremental.get_all_tracked_files"
 
         # Serial build
         db_serial = tmp_path / "serial.db"

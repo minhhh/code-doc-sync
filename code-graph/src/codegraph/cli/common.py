@@ -13,7 +13,7 @@ import typer
 
 from ..graph import GraphStore
 from .hints import generate_hints
-from ..incremental import find_project_root, get_db_path
+from ..pipeline.incremental import find_project_root, get_db_path
 
 def _root(root: Optional[Path]) -> Path:
     """Resolve the repository root; all graph data lives under it."""

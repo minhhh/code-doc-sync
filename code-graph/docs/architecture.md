@@ -15,8 +15,9 @@ them, and how queries read the result.
                 │
 ┌───────────────▼──────────────────────────────────────────────┐
 │ engine modules                                               │
-│ build, incremental, postprocessing, changes, refactor        │
+│ changes, refactor                                            │
 │   graph/    store (SQLite), migrations                       │
+│   pipeline/ build, incremental, postprocessing, export       │
 │   parsing/  parser, tsconfig aliases, custom languages       │
 │   resolvers/ receivers, spring, temporal, rescript           │
 │   query/    queries, analysis, flows, communities, search    │
@@ -37,11 +38,11 @@ payload it prints.
 
 ```text
 code-graph build
-  └─ build.build_or_update(full_rebuild=True)
-       ├─ incremental.find_project_root()
-       ├─ incremental.get_db_path()            # <root>/.code-graph/graph.db
+  └─ pipeline.build.build_or_update(full_rebuild=True)
+       ├─ pipeline.incremental.find_project_root()
+       ├─ pipeline.incremental.get_db_path()   # <root>/.code-graph/graph.db
        ├─ GraphStore()                         # schema + migrations
-       ├─ incremental.collect_all_files()      # git ls-files / SVN / walk + ignore
+       ├─ pipeline.incremental.collect_all_files()  # git ls-files / SVN / walk + ignore
        ├─ for each file:
        │    ├─ CodeParser.detect_language()
        │    ├─ CodeParser.parse_bytes()
